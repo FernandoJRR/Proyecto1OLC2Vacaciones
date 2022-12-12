@@ -16,6 +16,9 @@ tokens = (
     'IF',
     'ELIF',
     'ELSE',
+    "WHILE",
+    "FOR",
+    "IN",
     'NAME',
     'NUMBER',  # Python decimals
     'FLOAT',
@@ -62,10 +65,12 @@ tokens = (
 # taken from decmial.py but without the leading sign
 
 def t_STRING(t):
-    r"\"([^\\']+|\\'|\\\\)*\""  # I think this is right ...
+    #r"\"([^\\']+|\\'|\\\\)*\"" 
+    r'\".*?\"'
 
 #    ('([^\\']+|\\'|\\\\)*') |
     t.value = t.value[1:-1].encode().decode("unicode_escape")  # .swapcase() # for fun
+    print(t.value)
     return t
 
 
@@ -114,6 +119,9 @@ RESERVED = {
     "if": "IF",
     "elif": "ELIF",
     "else": "ELSE",
+    "while": "WHILE",
+    "for": "FOR",
+    "in": "IN",
     "return": "RETURN",
     "continue": "CONTINUE",
     "break": "BREAK",
@@ -583,6 +591,8 @@ def p_small_stmt(p):
 def p_expr_stmt(p):
     """expr_stmt : testlist ASSIGN testlist
                  | testlist COLON type ASSIGN testlist
+                 | testlist ASSIGN list_def
+                 | testlist COLON type ASSIGN list_def
                  | testlist """
                  
     print(p[1],"\n")
@@ -603,6 +613,27 @@ def p_expr_stmt(p):
             asignacion.agregarhijos([p[1],p[3],p[5]])
             p[0] = asignacion
             #p[0] = Assign(p[1], p[3])
+
+def p_list_def(p):
+    """list_def : LBRA list_elem RBRA
+    """
+    
+    declaracion = NodoNoTerminal(TipoNoTerminal.DeclaracionLista)
+    declaracion.agregarhijos(p[2])
+    p[0] = declaracion
+
+def p_list_elem(p):
+    """ list_elem : list_elem COMMA test
+                  | list_elem COMMA list_def
+                  | test
+                  | list_def
+    """
+    
+    if len(p) == 2:
+        p[0] = [p[1]]
+    else:
+        p[1].append(p[3])
+        p[0] = p[1]
 
 
 
@@ -648,8 +679,57 @@ def p_break_stmt(p):
 def p_compound_stmt(p):
     """compound_stmt : if_stmt
                      | funcdef
+                     | while_loop
+                     | for_loop
                      | struct_def"""
     p[0] = p[1]
+    
+def p_while_loop(p):
+    """while_loop : WHILE test COLON suite
+    """
+    
+    loop = NodoInstruccion(TipoInstruccion.While)
+    loop.agregarhijos([p[2],p[4]])
+    p[0] = loop
+
+def p_for_loop(p):
+    """for_loop : FOR NAME IN range COLON suite
+    """
+
+    token = Token(p[2], p.lineno(2), p.lexspan(2)[0])
+    loop = NodoInstruccion(TipoInstruccion.For)
+    loop.agregarhijos([token,p[4],p[6]])
+    p[0] = loop
+
+
+def p_range(p):
+    """range : string_range
+             | name_range
+             | list_def
+             | atom trailer
+    """
+    
+    if len(p) == 3:
+        parametros = NodoNoTerminal(TipoNoTerminal.Parametros)
+        parametros.agregarhijos(p[2][1])
+        llamada = NodoInstruccion(TipoInstruccion.LlamadaFuncion)
+        llamada.agregarhijo(p[1])
+        llamada.agregarhijo(parametros)
+        p[0] = llamada
+    else:
+        p[0] = p[1]
+
+def p_string_range(p):
+    "string_range : STRING"
+
+    token = Token(p[1], p.lineno(1), p.lexspan(1)[0])
+    p[0] = TerminalTipoDato(token, TipoDato.String)
+    
+def p_name_range(p):
+    "name_range : NAME"
+
+    token = Token(p[1], p.lineno(1), p.lexspan(1)[0])
+    p[0] = token    
 
 def p_struct_def(p):
     """struct_def : STRUCT NAME COLON struct_body
@@ -854,7 +934,7 @@ def p_comparison(p):
 def p_power(p):
     """power : atom
              | atom trailer
-             | atom list"""
+             | atom list_index"""
              
     if len(p) == 2:
         p[0] = p[1]
@@ -908,8 +988,8 @@ def p_trailer(p):
     p[0] = ("LLAMADA", p[2])
 
 def p_list(p):
-    """list : LBRA test RBRA
-            | list LBRA test RBRA
+    """list_index : LBRA test RBRA
+                  | list_index LBRA test RBRA
     """
     if len(p) == 4:
         p[0] = ("INDICE", [p[2]])

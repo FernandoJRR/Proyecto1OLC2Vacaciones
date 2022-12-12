@@ -31,6 +31,7 @@ class TipoNoTerminal(Enum):
     
     ParametrosMostrar = 6
     IndiceLista = 7
+    DeclaracionLista = 8
 
 class TipoExpresionMatematica(Enum):
     Suma="SUMA",                        #Se espera -> expresion SUMA expresion
