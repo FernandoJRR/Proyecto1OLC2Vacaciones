@@ -52,10 +52,13 @@ tokens = (
     'WS',
     'NEWLINE',
     'COMMA',
+    'DOT',
     'SEMICOLON',
     'INT',
     'STR',
     'BOOL',
+    'TRUE',
+    'FALSE',
     'INDENT',
     'DEDENT',
     'ENDMARKER',
@@ -111,6 +114,7 @@ t_DIV = r'/'
 t_MOD = r'\%'
 t_COMMA = r','
 t_SEMICOLON = r';'
+t_DOT = r'\.'
 
 # Ply nicely documented how to do this.
 
@@ -137,6 +141,9 @@ RESERVED = {
     "str": "STR",
     "bool": "BOOL",
     "list": "LIST",
+
+    "True": "TRUE",
+    "False": "FALSE",
 }
 
 
@@ -590,6 +597,7 @@ def p_small_stmt(p):
 
 def p_expr_stmt(p):
     """expr_stmt : testlist ASSIGN testlist
+                 | atom list_index ASSIGN testlist
                  | testlist COLON type ASSIGN testlist
                  | testlist ASSIGN list_def
                  | testlist COLON type ASSIGN list_def
@@ -608,6 +616,13 @@ def p_expr_stmt(p):
             asignacion.agregarhijos([p[1],p[3]])
             p[0] = asignacion
             #p[0] = Assign(p[1], p[3])
+        elif len(p) == 5:
+            indice = NodoNoTerminal(TipoNoTerminal.IndiceLista)
+            p[2][1].insert(0,p[1])
+            indice.agregarhijos(p[2][1])
+            asignacion = NodoInstruccion(TipoInstruccion.Asignacion)
+            asignacion.agregarhijos([indice,p[4]])
+            p[0] = asignacion
         else:
             asignacion = NodoInstruccion(TipoInstruccion.Asignacion)
             asignacion.agregarhijos([p[1],p[3],p[5]])
@@ -707,15 +722,22 @@ def p_range(p):
              | name_range
              | list_def
              | atom trailer
+             | atom list_index
     """
     
     if len(p) == 3:
-        parametros = NodoNoTerminal(TipoNoTerminal.Parametros)
-        parametros.agregarhijos(p[2][1])
-        llamada = NodoInstruccion(TipoInstruccion.LlamadaFuncion)
-        llamada.agregarhijo(p[1])
-        llamada.agregarhijo(parametros)
-        p[0] = llamada
+        if p[2][0] == "LLAMADA":
+            parametros = NodoNoTerminal(TipoNoTerminal.Parametros)
+            parametros.agregarhijos(p[2][1])
+            llamada = NodoInstruccion(TipoInstruccion.LlamadaFuncion)
+            llamada.agregarhijo(p[1])
+            llamada.agregarhijo(parametros)
+            p[0] = llamada
+        elif p[2][0] == "INDICE":
+            indice = NodoNoTerminal(TipoNoTerminal.IndiceLista)
+            p[2][1].insert(0,p[1])
+            indice.agregarhijos(p[2][1])
+            p[0] = indice
     else:
         p[0] = p[1]
 
@@ -763,12 +785,19 @@ def p_struct_field(p):
     else:
         p[0] = Token(p[1], p.lineno(1), p.lexspan(1)[0])
 
+def p_par_test(p):
+    """par_test : LPAR atom RPAR
+                | test
+    """
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        p[0] = p[2]
 
 def p_if_stmt(p):
-    """if_stmt : IF test COLON suite
-               | IF test COLON suite ELSE COLON suite
-               | IF test COLON suite else_if_list
-    """
+    """if_stmt : IF par_test COLON suite
+               | IF par_test COLON suite ELSE COLON suite
+               | IF par_test COLON suite else_if_list"""
     
     #p[0] = ast.If(p[2], p[4], [])
     if_instruccion = NodoInstruccion(TipoInstruccion.If)
@@ -791,9 +820,9 @@ def p_if_stmt(p):
 
 
 def p_else_if_list(p):
-    """else_if_list     : ELIF test COLON suite
-                        | ELIF test COLON suite ELSE COLON suite
-                        | ELIF test COLON suite else_if_list"""
+    """else_if_list     : ELIF par_test COLON suite
+                        | ELIF par_test COLON suite ELSE COLON suite
+                        | ELIF par_test COLON suite else_if_list"""
 
     elif_instruccion = NodoInstruccion(TipoInstruccion.Elif)
     elif_instruccion.agregarhijos([p[2],p[4]])
@@ -934,7 +963,8 @@ def p_comparison(p):
 def p_power(p):
     """power : atom
              | atom trailer
-             | atom list_index"""
+             | atom list_index
+             | method"""
              
     if len(p) == 2:
         p[0] = p[1]
@@ -948,6 +978,7 @@ def p_power(p):
             p[0] = llamada
         elif p[2][0] == "INDICE":
             indice = NodoNoTerminal(TipoNoTerminal.IndiceLista)
+            p[2][1].insert(0,p[1])
             indice.agregarhijos(p[2][1])
             p[0] = indice
         else:
@@ -976,6 +1007,42 @@ def p_atom_string(p):
     token = Token(p[1], p.lineno(1), p.lexspan(1)[0])
     p[0] = TerminalTipoDato(token, TipoDato.String)
 
+def p_atom_true(p):
+    """atom : TRUE"""
+    token = Token(p[1], p.lineno(1), p.lexspan(1)[0])
+    p[0] = TerminalTipoDato(token, TipoDato.Boolean)
+
+def p_atom_false(p):
+    """atom : FALSE"""
+    token = Token(p[1], p.lineno(1), p.lexspan(1)[0])
+    p[0] = TerminalTipoDato(token, TipoDato.Boolean)
+    
+def p_method(p):
+    """method : NAME DOT NAME trailer
+              | LPAR atom RPAR DOT NAME trailer"""
+              
+    if len(p) == 5:
+        token_obj = Token(p[1], p.lineno(1), p.lexspan(1)[0])
+        token_metodo = Token(p[3], p.lineno(3), p.lexspan(3)[0])
+        parametros = NodoNoTerminal(TipoNoTerminal.Parametros)
+        parametros.agregarhijos(p[4][1])
+        llamada = NodoInstruccion(TipoInstruccion.LlamadaFuncion)
+        llamada.agregarhijo(token_metodo)
+        llamada.agregarhijo(parametros)
+        llamada_metodo = NodoNoTerminal(TipoNoTerminal.LlamadaMetodo)
+        llamada_metodo.agregarhijos([token_obj, llamada])
+    else:
+        token_metodo = Token(p[4], p.lineno(4), p.lexspan(4)[0])
+        parametros = NodoNoTerminal(TipoNoTerminal.Parametros)
+        parametros.agregarhijos(p[5][1])
+        llamada = NodoInstruccion(TipoInstruccion.LlamadaFuncion)
+        llamada.agregarhijo(token_metodo)
+        llamada.agregarhijo(parametros)
+        llamada_metodo = NodoNoTerminal(TipoNoTerminal.LlamadaMetodo)
+        llamada_metodo.agregarhijos([p[2], llamada_metodo])
+
+    p[0] = llamada_metodo
+        
 # def p_atom_tuple(p):
 #     """atom : LPAR testlist RPAR"""
 #     p[0] = p[2]
@@ -984,8 +1051,14 @@ def p_atom_string(p):
 
 
 def p_trailer(p):
-    "trailer : LPAR arglist RPAR"
-    p[0] = ("LLAMADA", p[2])
+    """trailer : LPAR arglist RPAR
+               | LPAR RPAR
+    """
+
+    if len(p) == 4:
+        p[0] = ("LLAMADA", p[2])
+    else:
+        p[0] = ("LLAMADA", [])
 
 def p_list(p):
     """list_index : LBRA test RBRA
@@ -1076,7 +1149,7 @@ class PyToPyParser(object):
 
     def parse(self, code):
         self.lexer.input(code)
-        result = self.parser.parse(lexer=self.lexer, tracking=True)
+        result = self.parser.parse(lexer=self.lexer, tracking=True, debug=False)
         return result
         return ast.Module(result)
 
@@ -1087,3 +1160,4 @@ def parse_input(input):
     ast = parser.parse(input)
     print(ast,"\n")
     print("Done")
+    recorrer(ast)
