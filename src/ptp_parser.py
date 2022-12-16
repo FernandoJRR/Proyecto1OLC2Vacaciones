@@ -757,8 +757,11 @@ def p_struct_def(p):
     """struct_def : STRUCT NAME COLON struct_body
     """
     
-    struct_def = NodoNoTerminal(TipoInstruccion.DeclaracionStruct)
-    struct_def.agregarhijos(p[4])
+    campos = NodoNoTerminal(TipoNoTerminal.CamposStruct)
+    campos.agregarhijos(p[4])
+    token = Token(p[2], p.lineno(2), p.lexspan(2)[0])
+    struct_def = NodoInstruccion(TipoInstruccion.DeclaracionStruct)
+    struct_def.agregarhijos([token, campos])
     p[0] = struct_def
     
 def p_struct_body(p):
@@ -964,7 +967,8 @@ def p_power(p):
     """power : atom
              | atom trailer
              | atom list_index
-             | method"""
+             | method
+             | attribute"""
              
     if len(p) == 2:
         p[0] = p[1]
@@ -1032,17 +1036,29 @@ def p_method(p):
         llamada_metodo = NodoNoTerminal(TipoNoTerminal.LlamadaMetodo)
         llamada_metodo.agregarhijos([token_obj, llamada])
     else:
-        token_metodo = Token(p[4], p.lineno(4), p.lexspan(4)[0])
+        token_metodo = Token(p[5], p.lineno(5), p.lexspan(5)[0])
         parametros = NodoNoTerminal(TipoNoTerminal.Parametros)
-        parametros.agregarhijos(p[5][1])
+        parametros.agregarhijos(p[6][1])
         llamada = NodoInstruccion(TipoInstruccion.LlamadaFuncion)
         llamada.agregarhijo(token_metodo)
         llamada.agregarhijo(parametros)
         llamada_metodo = NodoNoTerminal(TipoNoTerminal.LlamadaMetodo)
-        llamada_metodo.agregarhijos([p[2], llamada_metodo])
+        llamada_metodo.agregarhijos([p[2], llamada])
 
     p[0] = llamada_metodo
-        
+
+def p_attribute(p):
+    """attribute : NAME DOT NAME
+    """
+    
+    token_obj = Token(p[1], p.lineno(1), p.lexspan(1)[0])
+    token_att = Token(p[3], p.lineno(3), p.lexspan(3)[0])
+    
+    atributo = NodoNoTerminal(TipoNoTerminal.Atributo)
+    atributo.agregarhijos([token_obj, token_att])
+    
+    p[0] = atributo
+    
 # def p_atom_tuple(p):
 #     """atom : LPAR testlist RPAR"""
 #     p[0] = p[2]

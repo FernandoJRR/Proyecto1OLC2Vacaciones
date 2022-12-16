@@ -33,6 +33,8 @@ class TipoNoTerminal(Enum):
     IndiceLista = 7
     DeclaracionLista = 8
     LlamadaMetodo = 9
+    CamposStruct = 10
+    Atributo = 11
 
 class TipoExpresionMatematica(Enum):
     Suma="SUMA",                        #Se espera -> expresion SUMA expresion
@@ -213,6 +215,100 @@ def recorrer(ast: Nodo):
             #print(parametros, "parametros\n")
 
             print("---------------------\n")
+        elif ast.tipoInstruccion == TipoInstruccion.If: #If espera -> condicion instrucciones (else | elif)?
+            condicion = ast.hijos[0]
+
+            instrucciones = ast.hijos[1]
+            
+            print("If-------------------\n")
+            print("Condicion: ")
+            recorrer(condicion)
+
+            #Instrucciones
+            #recorrer(instrucciones)
+            #print(parametros, "parametros\n")
+
+            #Se verifica si existe un else o elif en el if
+            if len(ast.hijos) > 2:
+                extension = ast.hijos[2]
+                #Si ese es el caso se verifica si es un else o un elif
+                if extension.tipoInstruccion == TipoInstruccion.Else:
+                    print("Else:")
+                    recorrer(extension)
+                elif extension.tipoInstruccion == TipoInstruccion.Elif:
+                    print("Elif:")
+                    recorrer(extension)
+            print("---------------------\n")
+            
+        elif ast.tipoInstruccion == TipoInstruccion.Else:   #Else espera -> Token(Else) instrucciones
+            for hijo in ast.hijos:
+                #recorrer(hijo)
+                pass
+        elif ast.tipoInstruccion == TipoInstruccion.Elif:   #Elif espera -> condicion instrucciones (else | elif)?
+            condicion = ast.hijos[0]
+
+            instrucciones = ast.hijos[1]
+            
+            print("Condicion: ")
+            recorrer(condicion)
+
+            #Instrucciones
+            #recorrer(instrucciones)
+            #print(parametros, "parametros\n")
+
+            #Se verifica si existe un else o elif en el if
+            if len(ast.hijos) > 2:
+                extension = ast.hijos[2]
+                #Si ese es el caso se verifica si es un else o un elif
+                if extension.tipoInstruccion == TipoInstruccion.Else:
+                    print("Else:")
+                    recorrer(extension)
+                elif extension.tipoInstruccion == TipoInstruccion.Elif:
+                    print("Elif:")
+                    recorrer(extension)
+
+        elif ast.tipoInstruccion == TipoInstruccion.While:  #While espera -> condicion instrucciones
+            condicion = ast.hijos[0]
+            
+            instrucciones = ast.hijos[1]
+
+            print("While---------------\n")
+            recorrer(condicion)
+            
+            #recorrer(instrucciones)
+
+            print("---------------------\n")
+
+        elif ast.tipoInstruccion == TipoInstruccion.For:    #For espera ->  var_id rango instrucciones
+            variable_id = ast.hijos[0].lexema
+            
+            rango = ast.hijos[1]
+            
+            instrucciones = ast.hijos[2]
+
+            print("For------------------\n")
+            print(variable_id, " var_id")
+            
+            print("Rango:")
+            recorrer(rango)
+            
+            #recorrer(instrucciones)
+
+            print("---------------------\n")
+        
+        elif ast.tipoInstruccion == TipoInstruccion.DeclaracionStruct:  #Struct espera -> id campos
+            id_struct = ast.hijos[0].lexema
+            
+            campos = ast.hijos[1]
+
+            print("Struct---------------\n")
+            print(id_struct, " id_struct")
+            
+            recorrer(campos)
+            
+            #recorrer(instrucciones)
+
+            print("---------------------\n")
 
     elif isinstance(ast, NodoNoTerminal):                       #Si es un nodo no terminal
         if ast.tipoNoTerminal == TipoNoTerminal.Instrucciones:  #Instrucciones espera -> [Instrucciones...]
@@ -226,6 +322,14 @@ def recorrer(ast: Nodo):
         elif ast.tipoNoTerminal == TipoNoTerminal.Parametros:   #Parametros espera -> [Parametro...]
             for hijo in ast.hijos:
                 print("Parametro: ")
+                recorrer(hijo)
+        elif ast.tipoNoTerminal == TipoNoTerminal.CamposStruct:
+            for hijo in ast.hijos:
+                print("Campo: ")
+                recorrer(hijo)
+        elif ast.tipoNoTerminal == TipoNoTerminal.Atributo:
+            for hijo in ast.hijos:
+                print("Atributo: ")
                 recorrer(hijo)
     elif isinstance(ast, TerminalTipoDato):
         print("Lexema:",ast.token.lexema, " Tipo:", ast.tipoDato)
