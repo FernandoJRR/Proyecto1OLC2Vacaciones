@@ -66,6 +66,7 @@ class TipoDato(Enum):
     Boolean = 3
     None_ = 4
     List = 5
+    Struct = 6
 
 class Token(object):
     lexema: str
@@ -159,7 +160,7 @@ class NodoExpresion(Nodo):
             string += str(hijo)+" "
         return string + "\n)"                             
 
-def recorrer(ast: Nodo):
+def recorrer(ast: Nodo): #compile == recorrer
     # Se obtiene el tipo de nodo a recorrer
     
     if isinstance(ast, NodoInstruccion):                        #Si es un nodo de instruccion
@@ -182,7 +183,7 @@ def recorrer(ast: Nodo):
             else:                                               #Si no esta explicitamente indicado explicitamente se obtiene el tipo del valor
                 tipo_var = obtenerTipo(ast.hijos[1])
                 valor_var = ast.hijos[1]
-            
+                
             #Se imprime la asignacion
             print("Asignacion-----------\n")
             print(id_var, "id\n")
@@ -220,6 +221,8 @@ def recorrer(ast: Nodo):
 
             instrucciones = ast.hijos[1]
             
+
+
             print("If-------------------\n")
             print("Condicion: ")
             recorrer(condicion)
@@ -239,7 +242,7 @@ def recorrer(ast: Nodo):
                     print("Elif:")
                     recorrer(extension)
             print("---------------------\n")
-            
+
         elif ast.tipoInstruccion == TipoInstruccion.Else:   #Else espera -> Token(Else) instrucciones
             for hijo in ast.hijos:
                 #recorrer(hijo)
@@ -331,9 +334,9 @@ def recorrer(ast: Nodo):
             for hijo in ast.hijos:
                 print("Atributo: ")
                 recorrer(hijo)
-    elif isinstance(ast, TerminalTipoDato):
+    elif isinstance(ast, TerminalTipoDato):                         #TerminalTipoDato espera -> Token TipoDato     
         print("Lexema:",ast.token.lexema, " Tipo:", ast.tipoDato)
-    elif isinstance(ast, Terminal):
+    elif isinstance(ast, Terminal):                                 #Terminal espera -> Token
         print("Lexema:",ast.token.lexema)
     elif isinstance(ast, Token):
         print("Lexema:", ast.lexema)
