@@ -1,16 +1,20 @@
 from ...ast.ast import *
+from .Abstract import *
 
 class Simbolo:
     
-    def __init__(self, id, tipo, posicion, var_global, en_heap, struct=None, posicion_heap=False):
+    def __init__(self, id, tipo, posicion, es_global, en_heap, struct=None, posicion_heap=False):
         self.id = id
         self.tipo = tipo
         self.posicion = posicion
-        self.var_global = var_global
+        self.es_global = es_global
         self.en_heap = en_heap
         self.struct = struct
         self.posicion_heap = posicion_heap
         self.valor = None
+
+    def __str__(self):
+        return f'Id:{self.id},Tipo{self.tipo},Posicion:{self.posicion},Global:{self.es_global},Heap:{self.en_heap}'        
 
 class Entorno:
     variables = {}
@@ -22,6 +26,10 @@ class Entorno:
     heap_s = []
     
     def __init__(self, entorno_anterior):
+        self.variables = {}
+        self.funciones = {}
+        self.structs = {}
+        self.entorno_anterior = entorno_anterior
         self.size = 0
         self.et_break = None
         self.et_continue = None
@@ -32,6 +40,9 @@ class Entorno:
             self.et_break = self.entorno_anterior.et_break
             self.et_continue = self.entorno_anterior.et_continue
             self.et_return = self.entorno_anterior.et_return
+
+    def __str__(self):
+        return f'Variables:{self.variables},\nFunciones:{self.funciones},\nStructs:{self.structs}'
 
     #Metodo que obtiene un el contenido de un array ingresado
     #RETORNA: Array con los elementos obtenidos
@@ -52,8 +63,7 @@ class Entorno:
             elif isinstance(elemento, Return):
                 
                 #Se agrega el valor del return al array
-                array_retorno.append(elemento.value)
-                #TODO: REVISAR EQUIVALENTE CON AST
+                array_retorno.append(elemento.valor)
                 
             #Si el elemento es un array
             elif isinstance(elemento, list):
@@ -92,8 +102,8 @@ class Entorno:
 
                 #Si el id existe se hace que el simbolo ocupe el valor del id
                 env.variables[id_var] = Simbolo(
-                    id_var, tipo, env.variables[id_var].pos,
-                    env.prev == None, en_heap, tipo_struct
+                    id_var, tipo, env.variables[id_var].posicion,
+                    env.entorno_anterior == None, en_heap, tipo_struct
                 )
                 
                 #Se hace que las variables del entorno sean las variables del entorno actual
@@ -103,13 +113,13 @@ class Entorno:
                 return env.variables[id_var]
 
             #Se mueve al entorno padre
-            env = env.prev
+            env = env.entorno_anterior
             
         #Se comprueba si el id de la variable es especial
         if(id_var[-1] == '#'):
             id_var = id_var[0:-1]
             
-        nuevo_simbolo = Symbol(id_var, sym_type, self.size,self.prev == None, in_heap, struct_type)
+        nuevo_simbolo = Simbolo(id_var, tipo, self.size, self.entorno_anterior == None, en_heap, tipo_struct)
         
         self.size += 1                          #Se aumenta el espacio del entorno en 1
 
@@ -167,7 +177,7 @@ class Entorno:
             if id_var in env.variables.keys():  #Si la variable se encuentra en el entorno actual se devuelve
                 return env.variables[id_var]
             
-            env = env.prev                      #Si la variable no se encuentra en el entorno actual se mueve al entorno padre
+            env = env.entorno_anterior                      #Si la variable no se encuentra en el entorno actual se mueve al entorno padre
             
         #Si la variable no fue encontrada se devuelve None
         return None
@@ -181,7 +191,7 @@ class Entorno:
             if id_func in env.funciones.keys(): #Si la funcion se encuentra en el entorno actual se devuelve
                 return env.funciones[id_func]
             
-            env = env.prev                      #Si la funcion no se encuentra en el entorno actual se mueve al entorno padre
+            env = env.entorno_anterior                      #Si la funcion no se encuentra en el entorno actual se mueve al entorno padre
 
         #Si la funcion no existe se devuelve None
         return None
@@ -196,7 +206,7 @@ class Entorno:
             if id_struct in env.structs.keys(): #Si el struct se encuentra en el entorno actual se devuelve
                 return env.structs[id_struct]
 
-            env = env.prev                      #Si el struct no se encuentra en el entorno actual se mueve al entorno padre
+            env = env.entorno_anterior                      #Si el struct no se encuentra en el entorno actual se mueve al entorno padre
             
         #Si el struct no existe se devuelve None
         return None
@@ -206,6 +216,6 @@ class Entorno:
     def get_global(self):
         env = self                      #Se setea el entorno
         
-        while env.prev is not None:     #Se mueve al entorno raiz
-            env = env.prev
+        while env.entorno_anterior is not None:     #Se mueve al entorno raiz
+            env = env.entorno_anterior
         return env

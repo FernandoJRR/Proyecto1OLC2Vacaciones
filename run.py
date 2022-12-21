@@ -5,6 +5,9 @@ from flask_codemirror.fields import CodeMirrorField
 from wtforms.fields import SubmitField
 import os
 
+from src.compiler.utilities.Generador import Generador
+from src.compiler.utilities.Entorno import Entorno
+
 CODEMIRROR_LANGUAGES = ['python']
 WTF_CSRF_ENABLED = True
 CODEMIRROR_THEME = 'material'
@@ -24,13 +27,33 @@ def index():
     return render_template("index.html")
 
 
-from src.ptp_parser import parse_input
 
+from src.ptp_parser import parse_input
+from src.ast.ast import recorrer
 @app.route("/editor", methods=['GET', 'POST'])
 def editor():
     editor_area = EditorForm()
     if editor_area.validate_on_submit():
         text = editor_area.source_code.data
-        parse_input(text)
+        
+        generador_aux = Generador()
+        generador_aux.limpiar()
+
+        generador = generador_aux.get_instance()
+
+        nuevo_entorno = Entorno(None)
+        
+        ast = parse_input(text)
+
+        recorrer(ast, nuevo_entorno)
+
+        c3d = generador.get_codigo()
+        print("c3d:\n", c3d)
+            
+        """
+        try:
+        except Exception as e:
+            print("Error de compilacion", e)
+        """
     return render_template("editor.html", editor_area=editor_area)
 

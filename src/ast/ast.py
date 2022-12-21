@@ -1,4 +1,7 @@
 from enum import Enum
+from ..compiler.utilities.Abstract import *
+#from ..compiler.utilities.Generador import Generador
+
 #Cada tipo tiene asignada un booleano que indica si puede tener mas instrucciones dentro o no
 class TipoInstruccion(Enum):
     #Instrucciones que NO pueden tener mas instrucciones anidadas 0-6
@@ -67,6 +70,10 @@ class TipoDato(Enum):
     None_ = 4
     List = 5
     Struct = 6
+
+    Return = 7
+    Continue = 8
+    Break = 9
 
 class Token(object):
     lexema: str
@@ -160,8 +167,11 @@ class NodoExpresion(Nodo):
             string += str(hijo)+" "
         return string + "\n)"                             
 
-def recorrer(ast: Nodo): #compile == recorrer
+def recorrer(ast: Nodo, entorno): #compile == recorrer
     # Se obtiene el tipo de nodo a recorrer
+    
+    from ..compiler.utilities.Generador import Generador
+    from ..compiler.utilities.Entorno import Entorno, Simbolo
     
     if isinstance(ast, NodoInstruccion):                        #Si es un nodo de instruccion
         if ast.tipoInstruccion == TipoInstruccion.Asignacion:   #Asignacion espera -> id tipo? valor
@@ -188,8 +198,44 @@ def recorrer(ast: Nodo): #compile == recorrer
             print("Asignacion-----------\n")
             print(id_var, "id\n")
             print(tipo_var, "tipo\n")
-            print(valor_var, "valor\n")
+            print(valor_var, "recorrido\n")
             print("---------------------\n")
+            
+            generador_aux = Generador()                                                 #Se crea una instancia de Generador
+            generador = generador_aux.get_instance()                                    #Se obtiene una instancia del estatico Generador
+            
+            generador.agregar_comentario("Compilando Valor de Variable")
+            valor = recorrer(valor_var, entorno)                                        #Obtenemos el valor compilado
+            generador.agregar_comentario("Fin de la Compilacion del Valor de Variable")
+            
+            #Agregamos la variable a la tabla de simbolos
+            nueva_variable = entorno.guardar_var(
+                id_var, tipo_var, (valor.tipo_retorno == TipoDato.String or valor.tipo_retorno == TipoDato.Struct or valor.tipo_retorno == TipoDato.List), valor.tipo_struct
+            )
+            
+            posicion_temporal = nueva_variable.posicion     #Se obtiene la posicion en la tabla de simbolos de la variable
+
+            if not nueva_variable.es_global:                                                        #Se comprueba si la variable actual es global
+                posicion_temporal = generador.agregar_temporal()                                    #Si es global se crea una temporal
+                generador.agregar_expresion(posicion_temporal, 'P', nueva_variable.posicion, "+")   #El valor guardada en el stack se guarda en la temporal
+                
+            if valor.tipo_retorno == TipoDato.Boolean:              #Si el valor es boolean
+                etiqueta_temporal = generador.nueva_etiqueta()      #Se crea una etiqueta temporal hacia despues de la asignacion, dependiendo del boolean que sea
+
+                generador.poner_etiqueta(valor.true_et)             #Se pone una etiqueta true dependiendo del booleano
+                generador.set_stack(posicion_temporal, '1')         #Se guarda en el stack en la posicion del temporal 1, siento True
+                generador.agregar_goto(etiqueta_temporal)           #Se agrega un goto hacia el final de la asignacion
+
+                generador.poner_etiqueta(valor.false_et)            #Se pone una etiqueta false dependiendo del booleano
+                generador.set_stack(posicion_temporal, '0')         #Se guarda en el stack en la posicion del temporal 0, siendo False
+                generador.poner_etiqueta(etiqueta_temporal)         #Se pone la etiqueta temporal para salir de la asignacion
+                
+            else:                                                   #En caso que no sea boolean
+                generador.set_stack(posicion_temporal, valor.valor) #Se guarda en el stack en la posicion indicada el valor
+            
+            #Se agrega un salto de linea en el C3D
+            generador.agregar_espacio()
+
         elif ast.tipoInstruccion == TipoInstruccion.LlamadaFuncion: #LlamadaFunction espera -> id parametros
             id_func = ast.hijos[0].token.lexema
 
@@ -316,7 +362,7 @@ def recorrer(ast: Nodo): #compile == recorrer
     elif isinstance(ast, NodoNoTerminal):                       #Si es un nodo no terminal
         if ast.tipoNoTerminal == TipoNoTerminal.Instrucciones:  #Instrucciones espera -> [Instrucciones...]
             for hijo in ast.hijos:
-                recorrer(hijo)
+                recorrer(hijo, entorno)
         elif ast.tipoNoTerminal == TipoNoTerminal.DeclaracionParametros:    #DeclaracionParametros espera -> [Declaracion...]
             for parametro in ast.hijos:
                 print("DeclaracionParametro: ")
@@ -334,8 +380,66 @@ def recorrer(ast: Nodo): #compile == recorrer
             for hijo in ast.hijos:
                 print("Atributo: ")
                 recorrer(hijo)
+
+
     elif isinstance(ast, TerminalTipoDato):                         #TerminalTipoDato espera -> Token TipoDato     
+
+        
         print("Lexema:",ast.token.lexema, " Tipo:", ast.tipoDato)
+        
+        generador_aux = Generador()                 #Se crea un Generador
+        generador = generador_aux.get_instance()    #Se instancia el generador estadico
+        
+        #Se establece las etiquetas de boolean
+        true_et = ''
+        false_et = ''
+        
+        if ast.tipoDato == TipoDato.Int or ast.tipoDato == TipoDato.Float:      #Si el dato es Int o Float se devuelve un Return
+            return Return(str(ast.token.lexema), ast.tipoDato, False)
+
+        elif ast.tipoDato == TipoDato.Boolean:                                  #Si es un boolean se crean las etiquetas de true y false
+            if true_et == '':
+                true_et = generador.nueva_etiqueta()
+            if false_et == '':
+                false_et = generador.nueva_etiqueta()
+            
+            if ast.token.lexema == "True":                      #Si es True la variable
+                generador.agregar_goto(true_et)                 #Se hace un goto hacia la asignacion de True
+                generador.agregar_comentario("goto de True")
+                generador.agregar_goto(false_et)
+            else:                                               #Si es False la variable
+                generador.agregar_goto(false_et)                #Se hace un goto hacia la asignacion de False
+                generador.agregar_comentario("goto de False")
+                generador.agregar_goto(true_et)
+            
+            retorno = Return(bool(ast.token.lexema), ast.tipoDato, False)   #Se retorna el booleano en un Return
+            
+            #Se establecen las etiquetas en el retorno
+            retorno.true_et = true_et
+            retorno.false_et = false_et
+
+            return retorno
+        
+        elif ast.tipoDato == TipoDato.String:                           #Si es un string
+            temporal_retorno = generador.agregar_temporal()             #Se crea una temporal que almacene el string
+            generador.agregar_expresion(temporal_retorno, 'H', '', '')  #Se iguala la posicion del heap a la temporal
+            generador.set_heap('H', len(ast.token.lexema))              #Se establece en la posicion el size del string
+            generador.siguiente_heap()                                  #Se mueve el heap una posicion
+            
+            for caracter in str(ast.token.lexema):                      #Para cada caracter en el string se guarda el ASCII en la posicion del heap
+                generador.set_heap('H', ord(caracter))
+                generador.siguiente_heap()
+
+            generador.set_heap('H', '-1')                                                   #Al final de la cadena se indica guardando un -1
+            generador.siguiente_heap()
+            generador.agregar_expresion(temporal_retorno, temporal_retorno, '0.12837', '+') #Se suma al temporal 0.12837
+            
+            #Se devuelve un Return con el temporal
+            return Return(temporal_retorno, ast.tipoDato, True)
+        else:
+            pass
+            #TODO Manejo de error    
+
     elif isinstance(ast, Terminal):                                 #Terminal espera -> Token
         print("Lexema:",ast.token.lexema)
     elif isinstance(ast, Token):

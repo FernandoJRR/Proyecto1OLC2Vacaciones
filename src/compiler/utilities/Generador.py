@@ -1,20 +1,6 @@
-from .Entorno import *
+from .Entorno import Entorno
 
 class Generador:
-    count_temp = 0
-    count_label = 0
-    codigo = ''
-    funciones = ''
-    nativas = ''
-    en_funcion = False
-    en_nativas = False
-    temporales = []
-    print_string = False
-    print_list = False
-    potencia = False
-    to_upper = False
-    to_lower = False
-    modulo = False
 
     generador = None
     heap = [0 for i in range(3010199)]
@@ -24,6 +10,22 @@ class Generador:
         "P": 0, 
         '': 0
     }
+    
+    def __init__(self):
+        self.count_temp = 0
+        self.count_label = 0
+        self.codigo = ''
+        self.funciones = ''
+        self.nativas = ''
+        self.en_funcion = False
+        self.en_nativas = False
+        self.temporales = []
+        self.print_string = False
+        self.print_list = False
+        self.potencia = False
+        self.to_upper = False
+        self.to_lower = False
+        self.modulo = False
     
     def limpiar(self):
         self.count_temp = 0
@@ -99,7 +101,7 @@ class Generador:
     #RETORNA: String con "t{numero de variable temporal creada}"
     def agregar_temporal(self):
         temporal = f't{self.count_temp}'                    #Se crea el numero de temporal de modo que quede "t{numero de temporal creada}"
-        Generator.dict_temp[temporal] = 0                   #Se hace que el valor en el diccionario de temporales de la temporal creada sea igualado a 0
+        Generador.dict_temp[temporal] = 0                   #Se hace que el valor en el diccionario de temporales de la temporal creada sea igualado a 0
         self.count_temp += 1                                #Se aumenta el numero de temporales en 1
         self.temporales.append(temporal)                    #Se agrega la temporal al codigo de temporales en C3D
         return temporal                                     #Se retorna el string
@@ -131,37 +133,37 @@ class Generador:
     def agregar_expresion(self, resultado, left, right, op):
 
         #Se comprueba si los lados tanto izquierdo como derecho estan como temporales en el diccionario de temporales
-        if left in Generator.dict_temp.keys() and right in Generator.dict_temp.keys():
+        if left in Generador.dict_temp.keys() and right in Generador.dict_temp.keys():
 
             #Se guarda como valor en el diccionario de temporales en la entrada de resultado el string con la operacion realizada
-            Generator.dict_temp[resultado] = self.operaciones(
-                Generator.dict_temp[left], Generator.dict_temp[right], op   #Se obtiene el valor de los lados usando las entradas en el diccionario
+            Generador.dict_temp[resultado] = self.operaciones(
+                Generador.dict_temp[left], Generador.dict_temp[right], op   #Se obtiene el valor de los lados usando las entradas en el diccionario
             )
 
         #Se comprueba si solo el lado izquierdo es una temporal en el diccionario
-        elif left in Generator.dict_temp.keys():
+        elif left in Generador.dict_temp.keys():
 
             #Se guarda como valor en el diccionario de temporales en la entrada de resultado el string con la operacion realizada
-            Generator.dict_temp[resultado] = self.operaciones(
+            Generador.dict_temp[resultado] = self.operaciones(
 
                 #Se convierte en float el lado derecho de la operacion (el que no es un temporal en este caso), se obtiene el valor de la izquierda del diccionario
-                Generator.dict_temp[left], float(right), op
+                Generador.dict_temp[left], float(right), op
             )
         
         #Se comprueba si solo el lado derecho es una temporal en el diccionario
-        elif right in Generator.dict_temp.keys():
+        elif right in Generador.dict_temp.keys():
 
             #Se guarda como valor en el diccionario de temporales en la entrada de resultado el string con la operacion realizada
-            Generator.dict_temp[resultado] = self.operaciones(
+            Generador.dict_temp[resultado] = self.operaciones(
 
                 #Se convierte en float el lado izquierdo de la operacion (el que no es un temporal en este caso), se obtiene el valor de la derecha del diccionario
-                float(left), Generator.dict_temp[right], op)
+                float(left), Generador.dict_temp[right], op)
         
         #Si no se cumplen los anteriores, significa que ningun lado de la operacion es temporal
         else:
 
             #Se guarda como valor en el diccionario de temporales en la entrada de resultado el string con la operacion realizada
-            Generator.dict_temp[resultado] = self.operaciones(
+            Generador.dict_temp[resultado] = self.operaciones(
 
                 #Se convierte en float ambos lados de la operacion (ya que no son temporales)
                 float(left), float(right), op)
@@ -204,28 +206,28 @@ class Generador:
     def set_stack(self, posicion, valor):
 
         #Se comprueba si ambos la posicion y el valor a agregar estan en el diccionario de temporales
-        if posicion in Generator.dict_temp.keys() and valor in Generator.dict_temp.keys():
+        if posicion in Generador.dict_temp.keys() and valor in Generador.dict_temp.keys():
             
             #Se agrega al stack en la posicion indicada el valor indicado
-            Generator.stack[int(Generator.dict_temp[posicion])] = Generator.dict_temp[valor]
+            Generador.stack[int(Generador.dict_temp[posicion])] = Generador.dict_temp[valor]
 
         #Se comprueba si solo la posicion esta en el diccionario de temporales
-        elif posicion in Generator.dict_temp.keys():
+        elif posicion in Generador.dict_temp.keys():
             
             #Se agrega al stack en la posicion indicada el valor casteado a float
-            Generator.stack[int(Generator.dict_temp[posicion])] = float(valor)
+            Generador.stack[int(Generador.dict_temp[posicion])] = float(valor)
 
         #Se comprueba si solo el valor esta guardado en el diccionario de temporales
-        elif valor in Generator.dict_temp.keys():
+        elif valor in Generador.dict_temp.keys():
         
             #Se agrega al stack en la posicion el valor del diccionario
-            Generator.stack[posicion] = Generator.dict_temp[valor]
+            Generador.stack[posicion] = Generador.dict_temp[valor]
         
         #En caso de que ni posicion ni valor este guardado en el stack
         else:
             
             #Se agrega en la posicion el valor al stack
-            Generator.stack[posicion] = (float(valor))
+            Generador.stack[posicion] = (float(valor))
 
         #Se agrega el codigo del manejo del stack en C3D en Go
         self.code_in(f'stack[int({posicion})]={valor};\n')
@@ -234,15 +236,15 @@ class Generador:
     def get_stack(self, llave, posicion):
         
         #Se comprueba si la posicion existe en el diccionario
-        if posicion in Generator.dict_temp.keys():
+        if posicion in Generador.dict_temp.keys():
             
             #Se guarda de la posicion indicada en el stack a la llave del diccionario el valor
-            Generator.dict_temp[llave] = Generator.stack[int(Generator.dict_temp[posicion])]
+            Generador.dict_temp[llave] = Generador.stack[int(Generador.dict_temp[posicion])]
 
         #En caso de que la posicion indicada no existe en el diccionario
         else:
             #Se guarda de la posicion en el stack a la llave del diccionario el valor
-            Generator.dict_temp[llave] = Generator.stack[int(posicion)]
+            Generador.dict_temp[llave] = Generador.stack[int(posicion)]
         
         #Se escribe la asignacion del valor del stack en C3D en Go
         self.code_in(f'{llave}=stack[int({posicion})];\n')
@@ -263,28 +265,28 @@ class Generador:
     def set_heap(self, posicion, value):
 
         #Se comprueba si ambos la posicion y el valor a agregar estan en el diccionario de temporales
-        if posicion in Generator.dict_temp.keys() and value in Generator.dict_temp.keys():
+        if posicion in Generador.dict_temp.keys() and value in Generador.dict_temp.keys():
 
             #Se agrega al heap en la posicion indicada el valor indicado
-            Generator.heap[int(Generator.dict_temp[posicion])] = Generator.dict_temp[value]
+            Generador.heap[int(Generador.dict_temp[posicion])] = Generador.dict_temp[value]
 
         #Se comprueba si solo la posicion esta en el diccionario de temporales
-        elif posicion in Generator.dict_temp.keys():
+        elif posicion in Generador.dict_temp.keys():
 
             #Se agrega al heap en la posicion indicada el valor casteado a float
-            Generator.heap[int(Generator.dict_temp[posicion])] = float(value)
+            Generador.heap[int(Generador.dict_temp[posicion])] = float(value)
 
         #Se comprueba si solo el valor esta guardado en el diccionario de temporales
-        elif value in Generator.dict_temp.keys():
+        elif value in Generador.dict_temp.keys():
 
             #Se agrega al heap en la posicion el valor del diccionario
-            Generator.heap[posicion] = Generator.dict_temp[value]
+            Generador.heap[posicion] = Generador.dict_temp[value]
 
         #En caso de que ni posicion ni valor este guardado en el heap
         else:
 
             #Se agrega en la posicion el valor al heap
-            Generator.heap[posicion] = (float(value))
+            Generador.heap[posicion] = (float(value))
 
         #Se agrega el codigo del manejo del heap en C3D en Go
         self.code_in(f'heap[int({posicion})]={value};\n')
@@ -293,23 +295,23 @@ class Generador:
     def get_heap(self, llave, posicion):
 
         #Se comprueba si la posicion existe en el diccionario
-        if posicion in Generator.dict_temp.keys():
+        if posicion in Generador.dict_temp.keys():
 
             #Se guarda de la posicion indicada en el heap a la llave del diccionario el valor
-            Generator.dict_temp[llave] = Generator.heap[int(Generator.dict_temp[posicion])]
+            Generador.dict_temp[llave] = Generador.heap[int(Generador.dict_temp[posicion])]
 
         #En caso de que la posicion indicada no existe en el diccionario
         else:
 
             #Se guarda de la posicion en el heap a la llave del diccionario el valor
-            Generator.dict_temp[llave] = Generator.heap[int(posicion)]
+            Generador.dict_temp[llave] = Generador.heap[int(posicion)]
 
         #Se escribe la asignacion del valor del heap en C3D en Go
         self.code_in(f'{llave}=heap[int({posicion})];\n')
 
     #Metodo que cambia la posicion del heap tanto en el Generador como en el C3D
     def siguiente_heap(self):
-        Generator.dict_temp["H"] = Generator.dict_temp["H"]+1
+        Generador.dict_temp["H"] = Generador.dict_temp["H"]+1
         self.code_in('H=H+1;\n')
 
     #Metodo que agrega print al C3D en Go

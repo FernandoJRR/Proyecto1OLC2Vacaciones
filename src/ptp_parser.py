@@ -1176,4 +1176,5 @@ def parse_input(input):
     ast = parser.parse(input)
     print(ast,"\n")
     print("Done")
-    recorrer(ast)
+    
+    return ast
