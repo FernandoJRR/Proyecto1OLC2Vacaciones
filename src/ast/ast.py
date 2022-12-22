@@ -245,9 +245,72 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             print("Llamada-------------\n")
             print(id_func, "id\n")
             #Se imprimen los parametros
-            recorrer(parametros)
+            #recorrer(parametros)
             #print(parametros, "parametros\n")
             print("---------------------\n")
+            
+            if id_func == "print" or id_func == "println":              #Se comprueba si la funcion es print o println
+
+                generador_aux = Generador()
+                generador = generador_aux.get_instance()
+
+                for parametro in parametros.hijos:
+                    valor_parametro = recorrer(parametro, entorno)
+                    
+                    if valor_parametro.tipo_retorno == TipoDato.Int:
+                        generador.agregar_print("d", valor_parametro.valor)
+
+                    elif valor_parametro.tipo_retorno == TipoDato.Float:
+                        generador.print_float("f", valor_parametro.valor)
+
+                    elif valor_parametro.tipo_retorno == TipoDato.Boolean:
+                        etiqueta_temporal = generador.nueva_etiqueta()
+                        generador.poner_etiqueta(valor_parametro.true_et)
+                        generador.print_true()
+                        generador.agregar_goto(etiqueta_temporal)
+
+                        generador.poner_etiqueta(valor_parametro.false_et)
+                        generador.print_false()
+                        generador.poner_etiqueta(etiqueta_temporal)
+
+                    elif valor_parametro.tipo_retorno == TipoDato.String:
+                        generador.fprint_string()
+                        temporal_parametro = generador.agregar_temporal()
+
+                        generador.agregar_expresion(temporal_parametro, 'P', entorno.size, '+')
+                        generador.agregar_expresion(temporal_parametro, temporal_parametro, '1', '+')
+                        generador.set_stack(temporal_parametro, valor_parametro.valor)
+                        generador.nuevo_ent(entorno.size)
+                        generador.call_fun('print_string')
+
+                        temporal = generador.agregar_temporal()
+                        generador.get_stack(temporal, 'P')
+                        generador.retornar_ent(entorno.size)
+
+                    elif valor_parametro.tipo_retorno == TipoDato.List:
+                        generador.agregar_expresion('P', 'P', env.size, '+')
+                        generador.fprint_array()
+                        generador.agregar_expresion('P', 'P', env.size, '-')
+
+                        temporal_parametro = generador.agregar_temporal()
+                        generador.agregar_expresion(temporal_parametro, 'P', env.size, '+')
+                        generador.agregar_expresion(temporal_parametro, temporal_parametro, '1', '+')
+                        generador.set_stack(temporal_parametro, valor_parametro.valor)
+                        generador.nuevo_ent(entorno.size)
+                        generador.call_fun('print_array')
+
+                        temporal = generador.agregar_temporal()
+                        generador.get_stack(temporal, 'P')
+                        generador.retirar_ent(entorno.size)
+                    else:
+                        #TODO: Struct y manejo de errores
+                        pass
+
+                    generador.agregar_print("c", 32)
+                
+                if id_func == "println":
+                    generador.agregar_print("c", 10)
+
         elif ast.tipoInstruccion == TipoInstruccion.DeclaracionFuncion: #DeclaracionFuncion espera -> id parametros instrucciones
             id_declar = ast.hijos[0].lexema
             parametros = ast.hijos[1]            
@@ -385,7 +448,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
     elif isinstance(ast, TerminalTipoDato):                         #TerminalTipoDato espera -> Token TipoDato     
 
         
-        print("Lexema:",ast.token.lexema, " Tipo:", ast.tipoDato)
+        print(f'Lexema: -{ast.token.lexema}-',"Tipo: ", ast.tipoDato)
         
         generador_aux = Generador()                 #Se crea un Generador
         generador = generador_aux.get_instance()    #Se instancia el generador estadico
@@ -442,8 +505,98 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
     elif isinstance(ast, Terminal):                                 #Terminal espera -> Token
         print("Lexema:",ast.token.lexema)
+        
+        generador_aux = Generador()
+        generador = generador_aux.get_instance()
+        
+        generador.agregar_comentario(f'Se accede a la variable {ast.token.lexema}')
+        
+        variable = entorno.get_var(ast.token.lexema)
+
+        if variable is None:
+            #TODO Manejo de errores
+            print("Variable no declarada")
+            return            
+
+        temporal = generador.agregar_temporal()
+
+        posicion_temporal = variable.posicion
+
+        if not variable.es_global:
+            posicion_temporal = generador.agregar_temporal()
+            generador.agregar_expresion(posicion_temporal, "P", variable.posicion, "+")
+        
+        generador.get_stack(temporal, posicion_temporal)
+
+        if variable.tipo is not TipoDato.Boolean:
+            generador.agregar_comentario("Variable accedida")
+            generador.agregar_espacio()
+            return Return(temporal, variable.tipo, True)
+
+        true_et = ''
+        false_et = ''
+
+        if true_et == '':
+            true_et = generador.nueva_etiqueta()
+        if false_et == '':
+            false_et = generador.nueva_etiqueta()
+        
+        generador.agregar_if(temporal, '1', '==', true_et)
+        generador.agregar_goto(false_et)
+        generador.agregar_comentario("Variable accedida")
+        
+        retorno = Return(None, TipoDato.Boolean, False)
+        retorno.true_et = true_et
+        retorno.false_et = false_et
+        
+        return retorno
+
     elif isinstance(ast, Token):
         print("Lexema:", ast.lexema)
+
+        generador_aux = Generador()
+        generador = generador_aux.get_instance()
+        
+        generador.agregar_comentario("Se accede a la variable ", ast.lexema)
+        
+        variable = entorno.get_var(ast.lexema)
+
+        if variable is None:
+            #TODO Manejo de errores
+            print("Variable no declarada")
+            return            
+
+        temporal = generador.agregar_temporal()
+
+        posicion_temporal = variable.posicion
+
+        if not variable.es_global:
+            posicion_temporal = generador.agregar_temporal()
+            generador.agregar_expresion(posicion_temporal, "P", variable.posicion, "+")
+        
+        generador.get_stack(temporal, posicion_temporal)
+
+        if variable.tipo is not TipoDato.Boolean:
+            generador.agregar_comentario("Variable accedida")
+            generador.agregar_espacio()
+
+        true_et = ''
+        false_et = ''
+
+        if true_et == '':
+            true_et = generador.nueva_etiqueta()
+        if false_et == '':
+            false_et = generador.nueva_etiqueta()
+        
+        generador.agregar_if(temporal, '1', '==', true_et)
+        generador.agregar_goto(false_et)
+        generador.agregar_comentario("Variable accedida")
+        
+        retorno = Return(None, TipoDato.Boolean, False)
+        retorno.true_et = true_et
+        retorno.false_et = false_et
+        
+        return retorno
 
 def obtenerTipo(nodo: Nodo):
     if isinstance(nodo, NodoExpresion):

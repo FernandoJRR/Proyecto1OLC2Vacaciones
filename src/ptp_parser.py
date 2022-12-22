@@ -73,7 +73,6 @@ def t_STRING(t):
 
 #    ('([^\\']+|\\'|\\\\)*') |
     t.value = t.value[1:-1].encode().decode("unicode_escape")  # .swapcase() # for fun
-    print(t.value)
     return t
 
 

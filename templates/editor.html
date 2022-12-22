@@ -23,23 +23,14 @@
         <li><input class="dropdown-item" name="opt_bloques" value="Optimizar por Bloques" type="submit"></li>
       </ul>
     </div>
-    <script>
-      let value = "";
-      let editor1 = CodeMirror(document.querySelector('#editor-div'), {
-        lineNumbers: true,
-        tabSize: 2,
-        value: '{{input}}',
-        mode: 'python',
-        theme: 'material'
-      });
-
-      editor1.on('changes', () => {
-        value = editor1.getValue();
-        console.log(value);
-      });
-    </script>
   </form>
-
+  <form method="post">
+    <div style="margin:1%">
+      <h4>C3D Output:</h4>
+      {{  c3d_area.csrf_token }}
+      {{  c3d_area.source_code }}
+    </div>
+  </form>
   <h2 style="margin-left:1%">Tabla de Simbolos</h2>
   <h2 style="margin-left:1%">Tabla de Errores</h2>
   <h2 style="margin-left:1%">Tabla de Optimizacion</h2>
