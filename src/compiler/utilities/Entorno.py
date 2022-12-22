@@ -115,7 +115,7 @@ class Entorno:
             #Se mueve al entorno padre
             env = env.entorno_anterior
             
-        #Se comprueba si el id de la variable es especial
+        #Se comprueba si el id pertenece a una funcion
         if(id_var[-1] == '#'):
             id_var = id_var[0:-1]
             

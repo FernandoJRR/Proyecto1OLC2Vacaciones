@@ -324,18 +324,18 @@ class Generador:
 
     #Metodo que imprime la palabra true en el C3D
     def print_true(self):
-        self.add_print("c", 116)    #t
-        self.add_print("c", 114)    #r
-        self.add_print("c", 117)    #u
-        self.add_print("c", 101)    #e
+        self.agregar_print("c", 116)    #t
+        self.agregar_print("c", 114)    #r
+        self.agregar_print("c", 117)    #u
+        self.agregar_print("c", 101)    #e
 
     #Metodo que imprime la palabra false en el C3D
     def print_false(self):
-        self.add_print("c", 102)    #f
-        self.add_print("c", 97)     #a
-        self.add_print("c", 108)    #l
-        self.add_print("c", 115)    #s
-        self.add_print("c", 101)    #e
+        self.agregar_print("c", 102)    #f
+        self.agregar_print("c", 97)     #a
+        self.agregar_print("c", 108)    #l
+        self.agregar_print("c", 115)    #s
+        self.agregar_print("c", 101)    #e
     
 
     #Metodo que agrega al C3D en Go la funcion nativa print_string
