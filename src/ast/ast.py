@@ -391,6 +391,29 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
             print("---------------------\n")
 
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+
+            generador.agregar_comentario("INICIA CICLO WHILE")
+
+            continue_lbl = generador.nueva_etiqueta()
+            generador.poner_etiqueta(continue_lbl)
+
+            condition = recorrer(condicion, entorno)
+
+            entorno.et_break = condition.false_et
+            entorno.et_continue = continue_lbl
+
+            generador.poner_etiqueta(condition.true_et)
+
+            #verificar si se necesita un nuevo entorno
+            recorrer(instrucciones, entorno)
+
+            generador.agregar_goto(continue_lbl)
+            generador.poner_etiqueta(condition.false_et)
+            generador.agregar_comentario("TERMINA CICLO WHILE")
+            generador.agregar_espacio()
+
         elif ast.tipoInstruccion == TipoInstruccion.For:    #For espera ->  var_id rango instrucciones
             variable_id = ast.hijos[0].lexema
             
