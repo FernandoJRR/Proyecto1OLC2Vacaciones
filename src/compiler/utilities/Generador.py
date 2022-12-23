@@ -324,14 +324,14 @@ class Generador:
 
     #Metodo que imprime la palabra true en el C3D
     def print_true(self):
-        self.agregar_print("c", 116)    #t
+        self.agregar_print("c", 84)    #T
         self.agregar_print("c", 114)    #r
         self.agregar_print("c", 117)    #u
         self.agregar_print("c", 101)    #e
 
     #Metodo que imprime la palabra false en el C3D
     def print_false(self):
-        self.agregar_print("c", 102)    #f
+        self.agregar_print("c", 70)    #F
         self.agregar_print("c", 97)     #a
         self.agregar_print("c", 108)    #l
         self.agregar_print("c", 115)    #s
@@ -651,3 +651,34 @@ class Generador:
         self.agregar_fin_funcion()      #Se agrega fin de funcion
 
         self.en_nativas = False         #Se desactiva flag que indica que se esta en una funcion nativa
+
+    def f_potencia(self):
+        if(self.potencia):
+            return
+
+        self.potencia = True
+        self.en_nativas = True
+        self.agregar_inicio_funcion('potencia')
+        t0 = self.agregar_temporal()
+
+        self.agregar_expresion(t0, 'P', '1', '+')
+        t1 = self.agregar_temporal()
+
+        self.get_stack(t1, t0)
+        self.agregar_expresion(t0, t0, '1', '+')
+        t2 = self.agregar_temporal()
+
+        self.get_stack(t2, t0)
+        self.agregar_expresion(t0, t1, '', '')
+        L0 = self.nueva_etiqueta()
+        L1 = self.nueva_etiqueta()
+
+        self.poner_etiqueta(L0)
+        self.agregar_if(t2, '1', '<=', L1)
+        self.agregar_expresion(t1, t1, t0, '*')
+        self.agregar_expresion(t2, t2, '1', '-')
+        self.agregar_goto(L0)
+        self.poner_etiqueta(L1)
+        self.set_stack('P', t1)
+        self.agregar_fin_funcion()
+        self.en_nativas = False

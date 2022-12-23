@@ -444,6 +444,336 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 print("Atributo: ")
                 recorrer(hijo)
 
+    elif isinstance(ast, NodoExpresion):
+
+        generador_aux = Generador()
+        generador: Generador = generador_aux.get_instance()
+
+        if ast.operador in TipoExpresionMatematica:
+
+            if ast.operador is not TipoExpresionMatematica.MenosUnitario and ast.operador is not TipoExpresionMatematica.Grupo:
+
+                valor1 = recorrer(ast.hijos[0],entorno)
+                valor2 = recorrer(ast.hijos[1],entorno)
+
+                temporal = generador.agregar_temporal()
+
+                if ast.operador == TipoExpresionMatematica.Suma:
+                    operador = '+'
+                elif ast.operador == TipoExpresionMatematica.Resta:
+                    operador = '-'
+                elif ast.operador == TipoExpresionMatematica.Multiplicacion:
+                    operador = '*'
+                elif ast.operador == TipoExpresionMatematica.Division:
+                    operador = '/'
+                elif ast.operador == TipoExpresionMatematica.Modulo:
+                    operador = '%'
+
+                if ast.operador == TipoExpresionMatematica.Potencia and valor1.tipo_retorno is not TipoDato.String:
+
+                    generador.f_potencia()
+                    temporal_parametro = generador.agregar_temporal()
+
+                    generador.agregar_expresion(temporal_parametro, 'P', entorno.size, '+')
+                    generador.agregar_expresion(temporal_parametro, temporal_parametro, '1', '+')
+                    generador.set_stack(temporal_parametro, valor1.valor)
+                    generador.agregar_expresion(temporal_parametro, temporal_parametro, '1', '+')
+                    generador.set_stack(temporal_parametro, valor2.valor)
+                    generador.nuevo_ent(entorno.size)
+                    generador.call_fun('potencia')
+
+                    temporal = generador.agregar_temporal()
+                    generador.get_stack(temporal, 'P')
+                    generador.retornar_ent(entorno.size)
+                    salida_potencia = generador.nueva_etiqueta()
+
+                    generador.agregar_if(valor2.valor, "0", '!=', salida_potencia)
+                    generador.agregar_expresion(temporal, '1', '', '')
+                    generador.poner_etiqueta(salida_potencia)
+
+                    return Return(temporal, TipoDato.Int, True)
+
+                else:
+                    if valor1.tipo_retorno == TipoDato.Float or valor2.tipo_retorno == TipoDato.Float or ast.operador == TipoExpresionMatematica.Division:
+                        etiqueta1 = generador.nueva_etiqueta()
+                        etiqueta2 = generador.nueva_etiqueta()
+
+                        if ast.operador == TipoExpresionMatematica.Division:
+                            generador.agregar_if(valor2.valor, '0', '==', etiqueta1)
+
+                            auxiliar = generador.agregar_temporal()
+
+                            generador.agregar_expresion(auxiliar, valor2.valor, '', '')
+
+                            generador.agregar_expresion(temporal, valor1.valor, auxiliar, operador)
+
+                            generador.agregar_goto(etiqueta2)
+
+                            generador.poner_etiqueta(etiqueta1)
+
+                            #Imprimir error matematico
+                            generador.agregar_print('c', 109)  
+                            generador.agregar_print('c', 97) 
+                            generador.agregar_print('c', 116) 
+                            generador.agregar_print('c', 104) 
+                            generador.agregar_print('c', 32)
+                            generador.agregar_print('c', 101) 
+                            generador.agregar_print('c', 114) 
+                            generador.agregar_print('c', 114) 
+                            generador.agregar_print('c', 111) 
+                            generador.agregar_print('c', 114) 
+
+                            generador.poner_etiqueta(etiqueta2)
+                        
+                        elif operador == '%':
+                            generador.agregar_modulo(temporal, valor1, valor2)
+                        
+                        else:
+                            generador.agregar_expresion(temporal, valor1, valor2, operador)
+                        
+                        return Return(temporal, TipoDato.Float, True)
+
+                    elif valor1.tipo_retorno == TipoDato.String:
+                        temporal_valor1 = generador.agregar_temporal()
+                        temporal_valor2 = generador.agregar_temporal()
+
+                        temporal_retorno = generador.agregar_temporal()
+                        temporal_auxiliar = generador.agregar_temporal()
+
+                        generador.agregar_expresion(temporal_retorno, 'H', '', '')
+                        generador.agregar_expresion(temporal_valor1, valor1.valor, '', '')
+                        generador.agregar_expresion(temporal_valor2, valor2.valor, '', '')
+                        generador.agregar_expresion(temporal_auxiliar, valor1.valor, '', '')
+
+                        if ast.operador == TipoExpresionMatematica.Suma and valor2.tipo_retorno == TipoDato.String:
+                            etiqueta_valor1 = generador.nueva_etiqueta()
+                            etiqueta_valor2 = generador.nueva_etiqueta()
+
+                            cambiador_valor1 = generador.agregar_temporal()
+                            cambiador_valor2 = generador.agregar_temporal()
+
+                            generador.get_heap(cambiador_valor1, temporal_valor1)
+                            generador.get_heap(cambiador_valor2, temporal_valor2)
+
+                            generador.poner_etiqueta(etiqueta_valor1)
+                            generador.set_heap('H', cambiador_valor1)
+                            generador.siguiente_heap()
+
+                            generador.agregar_expresion(temporal_valor1, temporal_valor1, '1', '+')
+                            generador.get_heap(cambiador_valor1, temporal_valor1)
+                            generador.agregar_if(cambiador_valor1, '-1', '!=', etiqueta_valor1)
+
+                            generador.poner_etiqueta(etiqueta_valor2)
+                            generador.set_heap('H', cambiador_valor2)
+                            generador.siguiente_heap()
+
+                            generador.agregar_expresion(temporal_valor2, temporal_valor2, '1', '+')
+                            generador.get_heap(cambiador_valor2, temporal_valor2)
+                            generador.agregar_if(cambiador_valor2, '-1', '!=', etiqueta_valor2)
+                            generador.set_heap('H', '-1')
+                            generador.siguiente_heap()
+                        elif ast.operador == TipoExpresionMatematica.Multiplicacion and valor2.tipo_retorno == TipoDato.Int:
+
+                            etiqueta_inicial = generador.nueva_etiqueta()
+                            generador.poner_etiqueta(etiqueta_inicial)
+                            generador.agregar_expresion(temporal_valor1, temporal_auxiliar, '', '')
+                            contador = generador.agregar_temporal()
+                            generador.agregar_expresion(contador, contador, '1', '+')
+
+                            etiqueta_valor1 = generador.nueva_etiqueta()
+                            cambiador_valor1 = generador.agregar_temporal()
+
+                            generador.get_heap(cambiador_valor1, temporal_valor1)
+                            generador.poner_etiqueta(etiqueta_valor1)
+                            generador.set_heap('H', cambiador_valor1)
+                            generador.siguiente_heap()
+                            generador.agregar_expresion(temporal_valor1, temporal_valor1, '1', '+')
+
+                            generador.get_heap(cambiador_valor1, temporal_valor1)
+                            generador.agregar_if(cambiador_valor1, '-1', '!=', etiqueta_valor1)
+                            generador.agregar_expresion(temporal_valor1, temporal_valor1, '1', '-')
+                            generador.agregar_if(valor2.valor, contador, '>', etiqueta_inicial)
+                            generador.set_heap('H', '-1')
+                            generador.siguiente_heap()
+
+                        else:
+                            #TODO manejo de errores
+                            pass
+                        return Return(temporal_retorno, TipoDato.String, True)
+                    else:
+                        if operador == '%':
+                            generador.agregar_modulo(temporal, valor1.valor, valor2.valor)
+                        else:
+                            generador.agregar_expresion(temporal, valor1.valor, valor2.valor, operador)
+                        
+                        return Return(temporal, TipoDato.Int, True)
+
+            elif ast.operador == TipoExpresionMatematica.MenosUnitario:
+                valor = recorrer(ast.hijos[0],entorno)
+                temporal = generador.agregar_temporal()
+
+                if valor.tipo_retorno == TipoDato.Int or valor.tipo_retorno == TipoDato.Float:
+                    generador.agregar_expresion(temporal, '0', valor.valor, '-')
+
+                    return Return(temporal, valor.tipo_retorno, True)
+                
+                else:
+                    #TODO manejo de error
+                    pass
+
+            elif ast.operador == TipoExpresionMatematica.Grupo:
+                resultado = recorrer(ast.hijos[0],entorno)
+                return resultado
+
+        elif ast.operador in TipoExpresionRelacional:
+
+            valor1 = recorrer(ast.hijos[0], entorno)
+            #valor2 = recorrer(ast.hijos[1], entorno)
+            valor2 = None
+
+            resultado = Return(None, TipoDato.Boolean, False)
+
+            if valor1 is not TipoDato.Boolean:
+                valor2 = recorrer(ast.hijos[1],entorno)
+
+                if (valor1.tipo_retorno == TipoDato.Int or valor1.tipo_retorno == TipoDato.Float) and (valor2.tipo_retorno == TipoDato.Int or valor2.tipo_retorno == TipoDato.Float):
+                    true_et = ''
+                    false_et = ''
+
+                    if true_et == '':
+                        true_et = generador.nueva_etiqueta()
+
+                    if false_et == '':
+                        false_et = generador.nueva_etiqueta()
+
+                    if ast.operador == TipoExpresionRelacional.Igualdad:
+                        operador = "=="
+                    elif ast.operador == TipoExpresionRelacional.Diferencia:
+                        operador = "!="
+                    elif ast.operador == TipoExpresionRelacional.MayorQue:
+                        operador = ">"
+                    elif ast.operador == TipoExpresionRelacional.MenorQue:
+                        operador = "<"
+                    elif ast.operador == TipoExpresionRelacional.MayorIgualQue:
+                        operador = ">="
+                    elif ast.operador == TipoExpresionRelacional.MenorIgualQue:
+                        operador = "<="
+
+                    generador.agregar_if(valor1.valor, valor2.valor, operador, true_et)
+                    generador.agregar_goto(false_et)
+                
+                elif valor1.tipo_retorno == TipoDato.String and valor2.tipo_retorno == TipoDato.String:
+                    etiqueta_inicial = generador.nueva_etiqueta()
+
+                    puntero1 = generador.agregar_temporal()
+                    puntero2 = generador.agregar_temporal()
+
+                    primer_valor = generador.agregar_temporal()
+                    segundo_valor = generador.agregar_temporal()
+
+                    true_et = ''
+                    false_et = ''
+
+                    if true_et == '':
+                        true_et = generador.nueva_etiqueta()
+
+                    if false_et == '':
+                        false_et = generador.nueva_etiqueta()
+                    
+                    generador.agregar_expresion(puntero1, valor1.valor, '', '')
+                    generador.agregar_expresion(puntero2, valor2.valor, '', '')
+
+                    generador.poner_etiqueta(etiqueta_inicial)
+
+                    generador.agregar_if(primer_valor, '-1', '==', true_et)
+
+                    generador.get_heap(primer_valor, puntero1)
+                    generador.get_heap(segundo_valor, puntero2)
+                
+                    generador.agregar_expresion(puntero1, puntero1, '1', '+')
+                    generador.agregar_expresion(puntero2, puntero2, '1', '+')
+
+                    generador.agregar_if(primer_valor, segundo_valor, '==', etiqueta_inicial)
+                    generador.agregar_if(primer_valor, segundo_valor, '!=', etiqueta_inicial)
+                    generador.agregar_goto(false_et)
+
+            else:
+                valor2_goto = generador.nueva_etiqueta()
+                temporal_valor1 = generador.agregar_temporal()
+
+                generador.poner_etiqueta(valor1.true_et)
+                generador.agregar_expresion(temporal_valor1, '1', '', '')
+
+                generador.agregar_goto(valor2_goto)
+                generador.poner_etiqueta(valor1.false_et)
+
+                generador.agregar_expresion(temporal_valor1, '0', '', '')
+                generador.poner_etiqueta(valor2_goto)
+
+                valor2 = recorrer(ast.hijos[1],entorno)
+
+                if right.type != Type.BOOL:
+                    #TODO  manejo de errores
+                    return
+
+                final_goto = generador.nueva_etiqueta()
+                temporal_valor2 = generador.agregar_temporal()
+                generador.poner_etiqueta(right.true_lbl)
+                generador.agregar_expresion(temporal_valor2, '1', '', '')
+                generador.agregar_goto(final_goto)
+                generador.poner_etiqueta(right.false_lbl)
+                generador.agregar_expresion(temporal_valor2, '0', '', '')
+                generador.poner_etiqueta(final_goto)
+
+
+                true_et = ''
+                false_et = ''
+
+                if true_et == '':
+                    true_et = generador.nueva_etiqueta()
+
+                if false_et == '':
+                    false_et = generador.nueva_etiqueta()
+
+                if ast.operador == TipoExpresionRelacional.Igualdad:
+                    operador = "=="
+                elif ast.operador == TipoExpresionRelacional.Diferencia:
+                    operador = "!="
+                elif ast.operador == TipoExpresionRelacional.MayorQue:
+                    operador = ">"
+                elif ast.operador == TipoExpresionRelacional.MenorQue:
+                    operador = "<"
+                elif ast.operador == TipoExpresionRelacional.MayorIgualQue:
+                    operador = ">="
+                elif ast.operador == TipoExpresionRelacional.MenorIgualQue:
+                    operador = "<="
+
+                generador.agregar_if(temporal_valor1, temporal_valor2, operador, true_et)
+
+                generador.agregar_goto(false_et)
+
+            generador.agregar_espacio()
+
+            resultado.true_et = true_et
+            resultado.false_et = false_et
+            return resultado
+
+
+        else:
+            if ast.operador == TipoExpresionLogica.And:
+                tipo_1 = obtenerTipo(ast.hijos[0])
+                tipo_2 = obtenerTipo(ast.hijos[1])
+                tipo_resultado = obtenerTipoResultante(tipo_1, tipo_2, TipoExpresionLogica.And)
+                return tipo_resultado
+            elif ast.operador == TipoExpresionLogica.Or:
+                tipo_1 = obtenerTipo(ast.hijos[0])
+                tipo_2 = obtenerTipo(ast.hijos[1])
+                tipo_resultado = obtenerTipoResultante(tipo_1, tipo_2, TipoExpresionLogica.Or)
+                return tipo_resultado
+            elif ast.operador == TipoExpresionLogica.Not:
+                tipo = obtenerTipo(ast.hijos[0])
+                tipo_resultado = obtenerTipoResultante(tipo, tipo_2, TipoExpresionLogica.Not)
+                return tipo_resultado
 
     elif isinstance(ast, TerminalTipoDato):                         #TerminalTipoDato espera -> Token TipoDato     
 
@@ -579,6 +909,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         if variable.tipo is not TipoDato.Boolean:
             generador.agregar_comentario("Variable accedida")
             generador.agregar_espacio()
+            return Return(temporal, variable.tipo, True)
 
         true_et = ''
         false_et = ''
