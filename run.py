@@ -44,7 +44,6 @@ def editor():
         c3d = generar_c3d(text)
 
         c3d_area.source_code.data = c3d
-        print("c3d:\n", c3d)
     
     return render_template("editor.html", editor_area=editor_area, c3d_area=c3d_area)
 
