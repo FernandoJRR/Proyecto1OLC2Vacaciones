@@ -326,58 +326,79 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
             print("---------------------\n")
         elif ast.tipoInstruccion == TipoInstruccion.If: #If espera -> condicion instrucciones (else | elif)?
-            condicion = ast.hijos[0]
+            generador_aux = Generador()
+            generador: Generador = generador_aux.get_instance()
 
-            instrucciones = ast.hijos[1]
-            
+            condicion = recorrer(ast.hijos[0], entorno)
 
-
-            print("If-------------------\n")
-            print("Condicion: ")
-            recorrer(condicion)
-
+            #print("If-------------------\n")
+            #print("Condicion: ")
+            #recorrer(condicion)
             #Instrucciones
             #recorrer(instrucciones)
             #print(parametros, "parametros\n")
 
+            if condicion.tipo_retorno != TipoDato.Boolean:
+                #TODO manejo de errores
+                return
+
+            generador.poner_etiqueta(condicion.true_et)
+
+            #Instrucciones
+            recorrer(ast.hijos[1], entorno)
+
             #Se verifica si existe un else o elif en el if
             if len(ast.hijos) > 2:
                 extension = ast.hijos[2]
-                #Si ese es el caso se verifica si es un else o un elif
-                if extension.tipoInstruccion == TipoInstruccion.Else:
-                    print("Else:")
-                    recorrer(extension)
-                elif extension.tipoInstruccion == TipoInstruccion.Elif:
-                    print("Elif:")
-                    recorrer(extension)
+                etiqueta_salida_if = generador.nueva_etiqueta()
+                generador.agregar_goto(etiqueta_salida_if)
+            
+            generador.poner_etiqueta(condicion.false_et)
+
+            if len(ast.hijos) > 2:
+                #Else | Elif
+                recorrer(ast.hijos[2],entorno)
+                generador.poner_etiqueta(etiqueta_salida_if)
+
             print("---------------------\n")
 
+
         elif ast.tipoInstruccion == TipoInstruccion.Else:   #Else espera -> Token(Else) instrucciones
-            for hijo in ast.hijos:
-                #recorrer(hijo)
-                pass
+            recorrer(ast.hijos[1], entorno)
         elif ast.tipoInstruccion == TipoInstruccion.Elif:   #Elif espera -> condicion instrucciones (else | elif)?
-            condicion = ast.hijos[0]
-
-            instrucciones = ast.hijos[1]
             
-            print("Condicion: ")
-            recorrer(condicion)
+            generador_aux = Generador()
+            generador: Generador = generador_aux.get_instance()
 
+            condicion = recorrer(ast.hijos[0], entorno)
+
+            if condicion.tipo_retorno != TipoDato.Boolean:
+                #TODO manejo de errores
+                return
+            
+            #print("Condicion: ")
             #Instrucciones
             #recorrer(instrucciones)
             #print(parametros, "parametros\n")
 
+            generador.poner_etiqueta(condicion.true_et)
+
+            #Instrucciones
+            recorrer(ast.hijos[1], entorno)
+
             #Se verifica si existe un else o elif en el if
             if len(ast.hijos) > 2:
                 extension = ast.hijos[2]
-                #Si ese es el caso se verifica si es un else o un elif
-                if extension.tipoInstruccion == TipoInstruccion.Else:
-                    print("Else:")
-                    recorrer(extension)
-                elif extension.tipoInstruccion == TipoInstruccion.Elif:
-                    print("Elif:")
-                    recorrer(extension)
+                etiqueta_salida_if = generador.nueva_etiqueta()
+                generador.agregar_goto(etiqueta_salida_if)
+            
+            generador.poner_etiqueta(condicion.false_et)
+
+            if len(ast.hijos) > 2:
+                #Else | Elif
+                recorrer(ast.hijos[2],entorno)
+                generador.poner_etiqueta(etiqueta_salida_if)
+                
 
         elif ast.tipoInstruccion == TipoInstruccion.While:  #While espera -> condicion instrucciones
             condicion = ast.hijos[0]
@@ -656,7 +677,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
             resultado = Return(None, TipoDato.Boolean, False)
 
-            if valor1 is not TipoDato.Boolean:
+            if valor1.tipo_retorno is not TipoDato.Boolean:
                 valor2 = recorrer(ast.hijos[1],entorno)
 
                 if (valor1.tipo_retorno == TipoDato.Int or valor1.tipo_retorno == TipoDato.Float) and (valor2.tipo_retorno == TipoDato.Int or valor2.tipo_retorno == TipoDato.Float):
@@ -735,16 +756,16 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
                 valor2 = recorrer(ast.hijos[1],entorno)
 
-                if right.type != Type.BOOL:
+                if valor2.tipo_retorno != TipoDato.Boolean:
                     #TODO  manejo de errores
                     return
 
                 final_goto = generador.nueva_etiqueta()
                 temporal_valor2 = generador.agregar_temporal()
-                generador.poner_etiqueta(right.true_lbl)
+                generador.poner_etiqueta(valor2.true_et)
                 generador.agregar_expresion(temporal_valor2, '1', '', '')
                 generador.agregar_goto(final_goto)
-                generador.poner_etiqueta(right.false_lbl)
+                generador.poner_etiqueta(valor2.false_et)
                 generador.agregar_expresion(temporal_valor2, '0', '', '')
                 generador.poner_etiqueta(final_goto)
 
@@ -888,7 +909,11 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         elif ast.tipoDato == TipoDato.String:                           #Si es un string
             temporal_retorno = generador.agregar_temporal()             #Se crea una temporal que almacene el string
             generador.agregar_expresion(temporal_retorno, 'H', '', '')  #Se iguala la posicion del heap a la temporal
-            generador.set_heap('H', len(ast.token.lexema))              #Se establece en la posicion el size del string
+
+            #TODO revisar entre los dos
+            #generador.set_heap('H', len(ast.token.lexema))              #Se establece en la posicion el size del string
+            generador.set_heap('H', 0)              #Se establece en la posicion el size del string
+
             generador.siguiente_heap()                                  #Se mueve el heap una posicion
             
             for caracter in str(ast.token.lexema):                      #Para cada caracter en el string se guarda el ASCII en la posicion del heap
