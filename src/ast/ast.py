@@ -783,20 +783,65 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
 
         else:
+            generador.agregar_comentario("inicio expresion logica")
+            true_et = ''
+            false_et = ''
+
+            if true_et == '':
+                true_et = generador.nueva_etiqueta()
+
+            if false_et == '':
+                false_et = generador.nueva_etiqueta()
+            
+            etiqueta_and_or = ''
+
+            generador.agregar_comentario("val1")
+            valor1 = recorrer(ast.hijos[0], entorno)
+            generador.agregar_comentario("val1")
+
             if ast.operador == TipoExpresionLogica.And:
-                tipo_1 = obtenerTipo(ast.hijos[0])
-                tipo_2 = obtenerTipo(ast.hijos[1])
-                tipo_resultado = obtenerTipoResultante(tipo_1, tipo_2, TipoExpresionLogica.And)
-                return tipo_resultado
+                etiqueta_and_or = valor1.true_et
             elif ast.operador == TipoExpresionLogica.Or:
-                tipo_1 = obtenerTipo(ast.hijos[0])
-                tipo_2 = obtenerTipo(ast.hijos[1])
-                tipo_resultado = obtenerTipoResultante(tipo_1, tipo_2, TipoExpresionLogica.Or)
-                return tipo_resultado
-            elif ast.operador == TipoExpresionLogica.Not:
-                tipo = obtenerTipo(ast.hijos[0])
-                tipo_resultado = obtenerTipoResultante(tipo, tipo_2, TipoExpresionLogica.Not)
-                return tipo_resultado
+                etiqueta_and_or = valor1.false_et
+
+            if etiqueta_and_or is not '':
+                generador.agregar_comentario("andor")
+                generador.poner_etiqueta(etiqueta_and_or)
+                generador.agregar_comentario("andor")
+                pass
+
+            if ast.operador is not TipoExpresionLogica.Not:
+                generador.agregar_comentario("val2")
+                valor2 = recorrer(ast.hijos[1], entorno)
+                generador.agregar_comentario("val2")
+
+            if ast.operador == TipoExpresionLogica.And:
+                true_et = valor2.true_et
+                false_et = valor1.false_et +":"+ valor2.false_et
+
+            elif ast.operador == TipoExpresionLogica.Or:
+                true_et = valor1.true_et + ":" + valor2.true_et
+                false_et = valor2.false_et
+            else:
+                false_et = valor1.true_et
+                true_et = valor1.false_et
+            
+            if valor1.tipo_retorno is not TipoDato.Boolean:
+                #TODO manejo de errores
+                return
+            
+            if ast.operador is not TipoExpresionLogica.Not:
+                if valor2.tipo_retorno is not TipoDato.Boolean:
+                    return
+            
+            generador.agregar_espacio()
+
+            generador.agregar_comentario("fin expresion logica")
+
+            retorno = Return(None, TipoDato.Boolean, False)
+            retorno.true_et = true_et
+            retorno.false_et = false_et
+            return retorno
 
     elif isinstance(ast, TerminalTipoDato):                         #TerminalTipoDato espera -> Token TipoDato     
 
@@ -823,12 +868,16 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 generador.agregar_goto(true_et)                 #Se hace un goto hacia la asignacion de True
                 generador.agregar_comentario("goto de True")
                 generador.agregar_goto(false_et)
+
+                booleano = True
             else:                                               #Si es False la variable
                 generador.agregar_goto(false_et)                #Se hace un goto hacia la asignacion de False
                 generador.agregar_comentario("goto de False")
                 generador.agregar_goto(true_et)
+
+                booleano = False
             
-            retorno = Return(bool(ast.token.lexema), ast.tipoDato, False)   #Se retorna el booleano en un Return
+            retorno = Return(booleano, ast.tipoDato, False)   #Se retorna el booleano en un Return
             
             #Se establecen las etiquetas en el retorno
             retorno.true_et = true_et
@@ -1036,7 +1085,7 @@ def obtenerTipo(nodo: Nodo):
                 return tipo_resultado
             elif nodo.operador == TipoExpresionLogica.Not:
                 tipo = obtenerTipo(nodo.hijos[0])
-                tipo_resultado = obtenerTipoResultante(tipo, tipo_2, TipoExpresionLogica.Not)
+                tipo_resultado = obtenerTipoResultante(tipo, tipo, TipoExpresionLogica.Not)
                 return tipo_resultado
     elif isinstance(nodo, TerminalTipoDato):
         return nodo.tipoDato
