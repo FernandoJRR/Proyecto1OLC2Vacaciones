@@ -188,16 +188,14 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             
             #Se verifica el tipo de dato a asignar
             if isinstance(ast.hijos[1], TipoDato):              #Se comprueba si el tipo fue indicado explicitamente
-                tipo_var = ast.hijos[1]
                 valor_var = ast.hijos[2]
             else:                                               #Si no esta explicitamente indicado explicitamente se obtiene el tipo del valor
-                tipo_var = obtenerTipo(ast.hijos[1])
                 valor_var = ast.hijos[1]
                 
             #Se imprime la asignacion
             print("Asignacion-----------\n")
             print(id_var, "id\n")
-            print(tipo_var, "tipo\n")
+            #print(tipo_var, "tipo\n")
             print(valor_var, "recorrido\n")
             print("---------------------\n")
             
@@ -208,6 +206,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             valor = recorrer(valor_var, entorno)                                        #Obtenemos el valor compilado
             generador.agregar_comentario("Fin de la Compilacion del Valor de Variable")
             
+            #Se verifica el tipo de dato a asignar
+            if isinstance(ast.hijos[1], TipoDato):              #Se comprueba si el tipo fue indicado explicitamente
+                tipo_var = ast.hijos[1]
+            else:                                               #Si no esta explicitamente indicado explicitamente se obtiene el tipo del valor
+                tipo_var = valor.tipo_retorno
+
             #Agregamos la variable a la tabla de simbolos
             nueva_variable = entorno.guardar_var(
                 id_var, tipo_var, (valor.tipo_retorno == TipoDato.String or valor.tipo_retorno == TipoDato.Struct or valor.tipo_retorno == TipoDato.List), valor.tipo_struct
@@ -288,12 +292,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                         generador.retornar_ent(entorno.size)
 
                     elif valor_parametro.tipo_retorno == TipoDato.List:
-                        generador.agregar_expresion('P', 'P', env.size, '+')
+                        generador.agregar_expresion('P', 'P', entorno.size, '+')
                         generador.fprint_array()
-                        generador.agregar_expresion('P', 'P', env.size, '-')
+                        generador.agregar_expresion('P', 'P', entorno.size, '-')
 
                         temporal_parametro = generador.agregar_temporal()
-                        generador.agregar_expresion(temporal_parametro, 'P', env.size, '+')
+                        generador.agregar_expresion(temporal_parametro, 'P', entorno.size, '+')
                         generador.agregar_expresion(temporal_parametro, temporal_parametro, '1', '+')
                         generador.set_stack(temporal_parametro, valor_parametro.valor)
                         generador.nuevo_ent(entorno.size)
@@ -310,18 +314,89 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 
                 if id_func == "println":
                     generador.agregar_print("c", 10)
+            else:
+                funcion = entorno.get_func(id_func)
+                if funcion is not None:
+                    valores_parametros = []
+                    generador_aux = Generador()
+                    generador = generador_aux.get_instance()
+                    size = entorno.size
+                    for parametro in parametros.hijos:
+                        valores_parametros.append(recorrer(parametro, entorno))
+                    temporal = generador.agregar_temporal()
+                    generador.agregar_expresion(temporal, 'P', size+1, '+')
 
-        elif ast.tipoInstruccion == TipoInstruccion.DeclaracionFuncion: #DeclaracionFuncion espera -> id parametros instrucciones
+                    auxiliar = 0
+                    for parametro in valores_parametros:
+                        auxiliar = auxiliar + 1
+                        generador.set_stack(temporal, parametro.valor)
+                        if auxiliar != len(valores_parametros):
+                            generador.agregar_expresion(temporal, temporal, '1', '+')
+                    generador.nuevo_ent(size)
+                    generador.call_fun(id_func)
+                    generador.get_stack(temporal, 'P')
+                    generador.retornar_ent(size)
+
+                    return Return(temporal, funcion[1], True)
+                #En caso que sea struct
+                else:
+                    pass
+
+        elif ast.tipoInstruccion == TipoInstruccion.DeclaracionFuncion: #DeclaracionFuncion espera -> id parametros (tipo)? instrucciones
             id_declar = ast.hijos[0].lexema
             parametros = ast.hijos[1]            
-            instrucciones = ast.hijos[2]
+
+            if len(ast.hijos) == 3:
+                tipo_fun = TipoDato.None_
+                instrucciones = ast.hijos[2]
+            else:
+                tipo_fun = ast.hijos[2]
+                instrucciones = ast.hijos[3]
 
             #Se imprime la definicion
             print("DefinicionFuncion----\n")
             print(id_declar, "id\n")
+            print(parametros, "id\n")
+            print(tipo_fun, "id\n")
+            print(instrucciones, "id\n")
+
+
+            entorno.guardar_func(id_declar, (parametros, tipo_fun ,instrucciones))
+
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+
+            nuevo_entorno = Entorno(entorno)
+            etiqueta_retorno = generador.nueva_etiqueta()
+
+            nuevo_entorno.et_return = etiqueta_retorno
+
+            nuevo_entorno.size = 1
+
+            for parametro in parametros.hijos:
+                print("DeclaracionParametro: ")
+                #recorrer(parametro)
+                if isinstance(parametro, TerminalTipoDato):
+                    nuevo_entorno.guardar_var(parametro.token.lexema, parametro.tipoDato, (parametro.tipoDato == TipoDato.String or parametro.tipoDato == TipoDato.Struct))
+                else:
+                    nuevo_entorno.guardar_var(parametro.lexema, TipoDato.None_, False)
+
+
+            print("antes",generador.en_funcion)
+            generador.agregar_inicio_funcion(id_declar)
+            print("mientras",generador.en_funcion)
+
+            recorrer(instrucciones, nuevo_entorno)
+            
+            if tipo_fun is not TipoDato.None_:
+                generador.poner_etiqueta(etiqueta_retorno)
+
+            generador.agregar_comentario("TERMINA DECLARACION")
+            generador.agregar_fin_funcion()
+            print("despues",generador.en_funcion)
 
             #Se imprimen los parametros
-            recorrer(parametros)
+            #recorrer(parametros)
             #print(parametros, "parametros\n")
 
             print("---------------------\n")
@@ -405,12 +480,10 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             
             instrucciones = ast.hijos[1]
 
-            print("While---------------\n")
-            recorrer(condicion)
-            
+            #print("While---------------\n")
+            #recorrer(condicion)
             #recorrer(instrucciones)
-
-            print("---------------------\n")
+            #print("---------------------\n")
 
             generador_aux = Generador()
             generador = generador_aux.get_instance()
@@ -465,6 +538,46 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             #recorrer(instrucciones)
 
             print("---------------------\n")
+        
+        elif ast.tipoInstruccion == TipoInstruccion.Return:             #Return espera -> Token(Return) expresion?
+            if entorno.et_return == '':
+                #TODO return fuera de una funcion
+                return
+
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+
+            valor = recorrer(ast.hijos[1], entorno)
+
+            if valor.tipo_retorno == TipoDato.Boolean:
+                temporal_et = generador.nueva_etiqueta()
+                generador.poner_etiqueta(valor.true_et)
+                generador.set_stack('P', '1')
+                generador.agregar_goto(temporal_et)
+                generador.poner_etiqueta(valor.false_et)
+                generador.set_stack('P', '0')
+                generador.poner_etiqueta(temporal_et)
+            else:
+                generador.set_stack('P', valor.valor)
+            generador.agregar_goto(entorno.et_return)
+        
+        elif ast.tipoInstruccion == TipoInstruccion.Continue:
+            if entorno.et_continue == '':
+                #TODO continue fuera de un loop
+                return
+            
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+            generador.agregar_goto(entorno.et_continue)
+        
+        elif ast.tipoInstruccion == TipoInstruccion.Break:
+            if entorno.et_break == '':
+                #TODO break fuera de un loop
+                return
+            
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+            generador.agregar_goto(entorno.et_break)
 
     elif isinstance(ast, NodoNoTerminal):                       #Si es un nodo no terminal
         if ast.tipoNoTerminal == TipoNoTerminal.Instrucciones:  #Instrucciones espera -> [Instrucciones...]
@@ -473,7 +586,11 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         elif ast.tipoNoTerminal == TipoNoTerminal.DeclaracionParametros:    #DeclaracionParametros espera -> [Declaracion...]
             for parametro in ast.hijos:
                 print("DeclaracionParametro: ")
-                recorrer(parametro)
+                #recorrer(parametro)
+                if isinstance(parametro, TerminalTipoDato):
+                    entorno.guardar_var(parametro.token.lexema, parametro.tipoDato, (parametro.tipoDato == TipoDato.String or parametro.tipoDato == TipoDato.Struct))
+                else:
+                    entorno.guardar_var(parametro.lexema, TipoDato.None_, False)
 
         elif ast.tipoNoTerminal == TipoNoTerminal.Parametros:   #Parametros espera -> [Parametro...]
             for hijo in ast.hijos:

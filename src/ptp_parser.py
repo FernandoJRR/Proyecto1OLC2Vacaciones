@@ -33,6 +33,7 @@ tokens = (
     'NEQ',
     'ASSIGN',
     'STRUCT',
+    'RETYPE',
     'LT',
     'GT',
     'LEQ',
@@ -97,6 +98,7 @@ def t_NUMBER(t):
     return t
 
 
+t_RETYPE = r'->'
 t_COLON = r':'
 t_LEQ = r'<='
 t_GEQ = r'>='
@@ -469,13 +471,18 @@ def p_file_input(p):
 # funcdef: [decorators] 'def' NAME parameters ':' suite
 # ignoring decorators
 def p_funcdef(p):
-    "funcdef : DEF NAME parameters COLON suite"
+    """funcdef : DEF NAME parameters COLON suite
+               | DEF NAME parameters RETYPE type COLON suite
+    """
     #p[0] = ast.FunctionDef(p[2], args=ast.arguments([ast.arg(x, None) for x in p[3]], None, [], [], None, []), body=p[5], decorator_list=[], returns=None)
     func_def = NodoInstruccion(TipoInstruccion.DeclaracionFuncion)
     token_id = Token(p[2], p.lineno(2), p.lexspan(2)[0])
-    func_def.agregarhijos([token_id,p[3],p[5]])    
-    p[0] = func_def
-
+    if len(p) == 6:
+        func_def.agregarhijos([token_id,p[3],p[5]])    
+        p[0] = func_def
+    else:
+        func_def.agregarhijos([token_id,p[3],p[5],p[7]])    
+        p[0] = func_def
 # parameters: '(' [varargslist] ')'
 
 
@@ -504,7 +511,7 @@ def p_varargslist(p):
         p[0] = p[1]
     elif len(p) == 4:
         if isinstance(p[1], str):
-            token_id = Token(p[2], p.lineno(2), p.lexspan(2)[0])
+            token_id = Token(p[1], p.lineno(1), p.lexspan(1)[0])
             terminal = TerminalTipoDato(token_id, p[3])
             parametros = NodoNoTerminal(TipoNoTerminal.DeclaracionParametros)
             parametros.agregarhijo(terminal)

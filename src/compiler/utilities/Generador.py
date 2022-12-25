@@ -200,7 +200,7 @@ class Generador:
     def agregar_fin_funcion(self):
         self.code_in('return;\n}\n')    #Se agrega el codigo C3D
         if not self.en_nativas:        #Se comprueba si estamos en una funcion nativa
-            self.in_func = False        #Si NO estamos en una funcion nativa se desactiva la flag de que estamos en una funcion no-nativa
+            self.en_funcion = False        #Si NO estamos en una funcion nativa se desactiva la flag de que estamos en una funcion no-nativa
     
     #Metodo que pone valores en posiciones del Stack
     def set_stack(self, posicion, valor):
