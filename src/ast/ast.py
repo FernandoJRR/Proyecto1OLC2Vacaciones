@@ -384,8 +384,8 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             
             instrucciones = ast.hijos[1]
 
-            print("While---------------\n")
-            recorrer(condicion)
+            #print("While---------------\n")
+            #recorrer(condicion)
             
             #recorrer(instrucciones)
 
@@ -417,8 +417,8 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         elif ast.tipoInstruccion == TipoInstruccion.For:    #For espera ->  var_id rango instrucciones
             variable_id = ast.hijos[0].lexema
             
-            rango = ast.hijos[1]
-            
+            rango = ast.hijos[1] 
+
             instrucciones = ast.hijos[2]
 
             print("For------------------\n")
