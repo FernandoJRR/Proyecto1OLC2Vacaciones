@@ -263,6 +263,9 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                     
                     if valor_parametro.tipo_retorno == TipoDato.Int:
                         generador.agregar_print("d", valor_parametro.valor)
+                    
+                    elif valor_parametro.tipo_retorno == TipoDato.Char:
+                        generador.agregar_print("c", valor_parametro.valor)
 
                     elif valor_parametro.tipo_retorno == TipoDato.Float:
                         generador.print_float("f", valor_parametro.valor)
@@ -314,6 +317,33 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 
                 if id_func == "println":
                     generador.agregar_print("c", 10)
+            # -------------------------- FUNCION RANGE PARA EL CICLO FOR --------------
+            elif id_func ==  "range":
+                # VERIFICAR SI ES DE UNO O DOS PARAMETROS => range(3) OR range(3)
+                # Y QUE SEA DE TIPO NUMERICO ENTERO
+                # for parametro in parametros.hijos:
+                #     print("parametros range: ", parametro)
+                
+                if len(parametros.hijos) == 2:
+                    rango = []
+                    for i in parametros.hijos:
+                        ii = recorrer(i, entorno)
+                        if ii.tipo_retorno != TipoDato.Int:
+                            print("Aqui hay un error, el rango debe de ser un tipo de dato Entero ")
+                            return Rango(None, None, True)
+                        #print("obtenemos el elemento: ", ii.valor)
+                        rango.append(ii.valor)  # 5,0   5 4 3 2 1 0
+                    
+                    return Rango(rango[0],rango[1] )
+                elif len(parametros.hijos) == 1:
+                    h = recorrer(parametros.hijos[0], entorno)
+                    if h.tipo_retorno != TipoDato.Int:
+                            print("Aqui hay un error, el rango debe de ser un tipo de dato Entero ")
+                            return Rango(None, None, True)
+                    return Rango(0,h.valor)
+                else:
+                    print("aqui se agrega el error: no se puede recorrer un rango con 3 parametros ")
+                    return Rango(None, None, True)
             else:
                 funcion = entorno.get_func(id_func)
                 if funcion is not None:
@@ -521,21 +551,141 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             generador.agregar_espacio()
 
         elif ast.tipoInstruccion == TipoInstruccion.For:    #For espera ->  var_id rango instrucciones
+            #print("esta es la estructura del ciclo for: ", ast.hijos)
             variable_id = ast.hijos[0].lexema
-            
-            rango = ast.hijos[1]
-            
+            rango = ast.hijos[1]   #(5) , (-1,6) , "iterame"  , ["uno","dos"]
             instrucciones = ast.hijos[2]
 
-            print("For------------------\n")
-            print(variable_id, " var_id")
-            
-            print("Rango:")
-            recorrer(rango)
-            
-            #recorrer(instrucciones)
+            print("=========================== INCIO CICLO  FOR ===============================\n")
+            iterando = recorrer(rango,entorno)
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
 
-            print("---------------------\n")
+            # validar el tipo de retorno
+            if isinstance(iterando,Rango):
+                if iterando.Error :
+                    print ("error al ejecutar el ciclo for, no es posible iterar")
+                else:
+                    #print("tenemos un for con un rago de: inicio: ", iterando.inicio ," fin: ", iterando.fin )
+                    # right_val = self.valor2.ejecutar(env) -> iterando.fin
+                    
+                    generador.agregar_comentario("=========== INICIO CILCO FOR ============== ")
+                    temp1 = generador.agregar_temporal()
+                    #lit_temp1 = Primitivo(temp1, Type.INT, self.linea, self.columna)
+                    lit_temp1 = Return(temp1, TipoDato.Int, True)
+                    #generador.add_expression(temp1, left_val.valor, '', '')
+                    generador.agregar_expresion(temp1,iterando.inicio, '', '')
+                    #continue_lbl = generador.new_label()
+                    continue_lbl = generador.nueva_etiqueta()
+
+                    #generador.put_label(continue_lbl)
+                    generador.poner_etiqueta(continue_lbl)
+                  
+                    # end_lbl = generador.new_label()
+                    end_lbl = generador.nueva_etiqueta()
+
+                    #generador.add_if(temp1, right_val.valor, ">", end_lbl)
+                    generador.agregar_if(temp1,iterando.fin, ">=", end_lbl)
+
+                    #new_env = Environment(env)
+                    nuevo_entorno = Entorno(entorno)
+
+                    # new_env.break_lbl = end_lbl
+                    nuevo_entorno.et_break = end_lbl
+                    # new_env.continue_lbl = continue_lbl
+                    nuevo_entorno.et_continue = continue_lbl
+
+                    # declaration = Declaracion(
+                    #     self.variable, lit_temp1, self.linea, self.columna)
+                    generador.agregar_comentario("Declarando variable iterador")
+            
+                    #Agregamos la variable a la tabla de simbolos
+                    nueva_variable = entorno.guardar_var(
+                        variable_id, TipoDato.Int,False, "")
+            
+                    posicion_temporal = nueva_variable.posicion     #Se obtiene la posicion en la tabla de simbolos de la variable
+
+                    if not nueva_variable.es_global:                                                        #Se comprueba si la variable actual es global
+                        posicion_temporal = generador.agregar_temporal()                                    #Si es global se crea una temporal
+                        generador.agregar_expresion(posicion_temporal, 'P', nueva_variable.posicion, "+")   #El valor guardada en el stack se guarda en la temporal
+                        
+                    generador.set_stack(posicion_temporal,lit_temp1.valor) #Se guarda en el stack en la posicion indicada el valor
+                    #Se agrega un salto de linea en el C3D
+                    generador.agregar_espacio()
+
+                    #generador.add_expression(temp1, temp1, '1', '+')
+                    generador.agregar_expresion(temp1, temp1, '1', '+')
+                    # self.instrucciones.ejecutar(new_env)
+                    recorrer(instrucciones,nuevo_entorno)
+                    generador.agregar_goto(continue_lbl)
+                    generador.poner_etiqueta(end_lbl)
+                    generador.agregar_comentario("=========== FIN CILCO FOR ============== ")
+            # valores_rango = recorrer(rango,entorno)
+            # print("Rango recorrer: ", valores_rango.valor )
+            #recorrer(rango)
+            # lista = recorrer(rango, entorno)
+            # print("Instrucciones :", rango )
+            elif isinstance(iterando, Return):
+                if iterando.es_temporal and  iterando.tipo_retorno == TipoDato.String:
+                    generador.agregar_comentario("=========== INICIO CILCO FOR ============== ")
+                    move_temp = generador.agregar_temporal()
+                    puntero = generador.agregar_temporal()
+                    continue_lbl = generador.nueva_etiqueta()
+                    end_lbl = generador.nueva_etiqueta()
+
+                    # generador.add_expression(puntero, left_val.valor, '1', '+')
+                    generador.agregar_expresion(puntero, iterando.valor, '1', '+')
+                    generador.get_heap(move_temp, puntero)
+                    generador.poner_etiqueta(continue_lbl)
+                    generador.agregar_if(move_temp, '-1', '==', end_lbl)
+                    
+                    nuevo_entorno = Entorno(entorno)
+                    nuevo_entorno.et_break = end_lbl
+                    nuevo_entorno.et_continue = continue_lbl
+
+                    generador.get_heap(move_temp, puntero)
+                    
+                    lit_temp1 = Return(move_temp, TipoDato.Int, True)
+
+                    # lit_temp1 = Primitivo(move_temp, Type.CHAR,
+                    #                     self.linea, self.columna)
+                    # declaration = Declaracion(
+                    #     self.variable, lit_temp1, self.linea, self.columna)
+                    # declaration.ejecutar(new_env)
+                    # generador.add_expression(puntero, puntero, '1', '+')
+
+                     # declaration = Declaracion(
+                    #     self.variable, lit_temp1, self.linea, self.columna)
+                    generador.agregar_comentario("Declarando variable iterador")
+            
+                    #Agregamos la variable a la tabla de simbolos
+                    nueva_variable = entorno.guardar_var(
+                        variable_id, TipoDato.Char,False, "")
+            
+                    posicion_temporal = nueva_variable.posicion     #Se obtiene la posicion en la tabla de simbolos de la variable
+
+                    if not nueva_variable.es_global:                                                        #Se comprueba si la variable actual es global
+                        posicion_temporal = generador.agregar_temporal()                                    #Si es global se crea una temporal
+                        generador.agregar_expresion(posicion_temporal, 'P', nueva_variable.posicion, "+")   #El valor guardada en el stack se guarda en la temporal
+                        
+                    generador.set_stack(posicion_temporal,lit_temp1.valor) #Se guarda en el stack en la posicion indicada el valor
+                    #Se agrega un salto de linea en el C3D
+                    generador.agregar_espacio()
+
+                    #generador.add_expression(temp1, temp1, '1', '+')
+                    generador.agregar_expresion(puntero, puntero, '1', '+')
+                    
+                    # se ejecutan las demas instrucciones
+                    recorrer(instrucciones,nuevo_entorno)
+                    generador.agregar_goto(continue_lbl)
+                    generador.poner_etiqueta(end_lbl)
+                    generador.agregar_comentario("=========== FIN CILCO FOR ============== ")
+
+                    # self.instrucciones.ejecutar(new_env)
+                    # generador.add_goto(continue_lbl)
+                    # generador.put_label(end_lbl)
+           
+            print("=========================== FINAL CICLO FOR ===============================\n")
         
         elif ast.tipoInstruccion == TipoInstruccion.DeclaracionStruct:  #Struct espera -> id campos
             id_struct = ast.hijos[0].lexema
