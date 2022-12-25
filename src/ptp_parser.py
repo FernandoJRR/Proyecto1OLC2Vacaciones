@@ -8,7 +8,7 @@ from .ast.ast import *
 ##### Lexer ######
 #import lex
 import decimal
-
+from src.compiler.utilities.Entorno import Entorno
 sys.set_int_max_str_digits(50000)
 
 tokens = (
@@ -205,9 +205,12 @@ def t_RBRA(t):
     return t
 
 def t_error(t):
-    raise SyntaxError("Unknown symbol %r" % (t.value[0],))
-    print("Skipping", repr(t.value[0]))
-    t.lexer.skip(1)
+    print("Illegal character '%s'" % t.value[0])
+    error = {}
+    error['tipo'] = "Lexico"
+    error['valor'] = str(t.value[0])
+    #error['posicion']=str(ast.linea)+","+str(ast.columna)
+    Entorno.errores.append(error)
 
 # I implemented INDENT / DEDENT generation as a post-processing filter
 
@@ -1157,8 +1160,12 @@ def p_argument(p):
 
 
 def p_error(p):
-    # print "Error!", repr(p)
-    raise SyntaxError(p)
+    print("error Sintactico")
+    error = {}
+    error['tipo'] = "Sintactico"
+    error['valor'] = "token no esperdo: " + str(p.value)
+    #error['posicion']=str(ast.linea)+","+str(ast.columna)
+    Entorno.errores.append(error)
 
 
 class PyToPyParser(object):
