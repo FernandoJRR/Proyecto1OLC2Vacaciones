@@ -415,6 +415,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
             if condicion.tipo_retorno != TipoDato.Boolean:
                 #TODO manejo de errores
+                print("La condicion no es de tipo booleana")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "La condicion no es de tipo booleana"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
                 return
 
             generador.poner_etiqueta(condicion.true_et)
@@ -449,6 +455,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
             if condicion.tipo_retorno != TipoDato.Boolean:
                 #TODO manejo de errores
+                print("La condicion no es de tipo booleana")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "La condicion no es de tipo booleana"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
                 return
             
             #print("Condicion: ")
@@ -542,6 +554,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         elif ast.tipoInstruccion == TipoInstruccion.Return:             #Return espera -> Token(Return) expresion?
             if entorno.et_return == '':
                 #TODO return fuera de una funcion
+                print("Return fuera de una funcion")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "Return fuera de una funcion"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
                 return
 
             generador_aux = Generador()
@@ -564,6 +582,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         elif ast.tipoInstruccion == TipoInstruccion.Continue:
             if entorno.et_continue == '':
                 #TODO continue fuera de un loop
+                print("Continue fuera de un loop")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "Continue fuera de un loop"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
                 return
             
             generador_aux = Generador()
@@ -573,6 +597,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         elif ast.tipoInstruccion == TipoInstruccion.Break:
             if entorno.et_break == '':
                 #TODO break fuera de un loop
+                print("Break fuera de un loop")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "Break fuera de un loop"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
                 return
             
             generador_aux = Generador()
@@ -759,6 +789,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
                         else:
                             #TODO manejo de errores
+                            print("No se puede operar la aritmetica")
+                            error = {}
+                            error['tipo'] = "Semantico"
+                            error['valor'] = "No se puede operar la aritmetica"
+                            #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                            Entorno.errores.append(error)
                             pass
                         return Return(temporal_retorno, TipoDato.String, True)
                     else:
@@ -780,6 +816,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 
                 else:
                     #TODO manejo de error
+                    print("Error en operador MenosUnitario")
+                    error = {}
+                    error['tipo'] = "Semantico"
+                    error['valor'] = "El valor no es int o float para el operador MenosUnitario"
+                    #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                    Entorno.errores.append(error)
                     pass
 
             elif ast.operador == TipoExpresionMatematica.Grupo:
@@ -875,6 +917,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
                 if valor2.tipo_retorno != TipoDato.Boolean:
                     #TODO  manejo de errores
+                    print("La variable no es de tipo booleana")
+                    error = {}
+                    error['tipo'] = "Semantico"
+                    error['valor'] = "La variable no es de tipo booleana"
+                    #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                    Entorno.errores.append(error)
                     return
 
                 final_goto = generador.nueva_etiqueta()
@@ -966,6 +1014,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             
             if valor1.tipo_retorno is not TipoDato.Boolean:
                 #TODO manejo de errores
+                print("La variable no es de tipo booleana")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "La variable no es de tipo booleana"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
                 return
             
             if ast.operador is not TipoExpresionLogica.Not:
@@ -1044,8 +1098,15 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             #Se devuelve un Return con el temporal
             return Return(temporal_retorno, ast.tipoDato, True)
         else:
+            #TODO Manejo de error  
+            print("Tipo de dato incorrecto")
+            error = {}
+            error['tipo'] = "Semantico"
+            error['valor'] = "Tipo de dato incorrecto"
+            #error['posicion']=str(ast.linea)+","+str(ast.columna)
+            Entorno.errores.append(error)
             pass
-            #TODO Manejo de error    
+              
 
     elif isinstance(ast, Terminal):                                 #Terminal espera -> Token
         print("Lexema:",ast.token.lexema)
@@ -1060,6 +1121,11 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         if variable is None:
             #TODO Manejo de errores
             print("Variable no declarada")
+            error = {}
+            error['tipo'] = "Semantico"
+            error['valor'] = "Variable no declarada"
+            #error['posicion']=str(ast.linea)+","+str(ast.columna)
+            Entorno.errores.append(error)
             return            
 
         temporal = generador.agregar_temporal()
@@ -1108,7 +1174,13 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         if variable is None:
             #TODO Manejo de errores
             print("Variable no declarada")
-            return            
+            error = {}
+            error['tipo'] = "Semantico"
+            error['valor'] = "Variable no declarada"
+            #error['posicion']=str(ast.linea)+","+str(ast.columna)
+            Entorno.errores.append(error)
+            return
+            
 
         temporal = generador.agregar_temporal()
 
