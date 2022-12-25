@@ -146,7 +146,7 @@ class Entorno:
             self.funciones[id_func] = funcion
             
             #Se hace que las funciones del Entorno sean las funciones del entorno actual
-            Environment.funciones = self.funciones
+            Entorno.funciones = self.funciones
 
     #Metodo que almacena un struct en el entorno
     def guardar_struct(self, id_struct, campos):

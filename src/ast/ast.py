@@ -188,16 +188,14 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             
             #Se verifica el tipo de dato a asignar
             if isinstance(ast.hijos[1], TipoDato):              #Se comprueba si el tipo fue indicado explicitamente
-                tipo_var = ast.hijos[1]
                 valor_var = ast.hijos[2]
             else:                                               #Si no esta explicitamente indicado explicitamente se obtiene el tipo del valor
-                tipo_var = obtenerTipo(ast.hijos[1])
                 valor_var = ast.hijos[1]
                 
             #Se imprime la asignacion
             print("Asignacion-----------\n")
             print(id_var, "id\n")
-            print(tipo_var, "tipo\n")
+            #print(tipo_var, "tipo\n")
             print(valor_var, "recorrido\n")
             print("---------------------\n")
             
@@ -208,6 +206,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             valor = recorrer(valor_var, entorno)                                        #Obtenemos el valor compilado
             generador.agregar_comentario("Fin de la Compilacion del Valor de Variable")
             
+            #Se verifica el tipo de dato a asignar
+            if isinstance(ast.hijos[1], TipoDato):              #Se comprueba si el tipo fue indicado explicitamente
+                tipo_var = ast.hijos[1]
+            else:                                               #Si no esta explicitamente indicado explicitamente se obtiene el tipo del valor
+                tipo_var = valor.tipo_retorno
+
             #Agregamos la variable a la tabla de simbolos
             nueva_variable = entorno.guardar_var(
                 id_var, tipo_var, (valor.tipo_retorno == TipoDato.String or valor.tipo_retorno == TipoDato.Struct or valor.tipo_retorno == TipoDato.List), valor.tipo_struct
@@ -288,12 +292,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                         generador.retornar_ent(entorno.size)
 
                     elif valor_parametro.tipo_retorno == TipoDato.List:
-                        generador.agregar_expresion('P', 'P', env.size, '+')
+                        generador.agregar_expresion('P', 'P', entorno.size, '+')
                         generador.fprint_array()
-                        generador.agregar_expresion('P', 'P', env.size, '-')
+                        generador.agregar_expresion('P', 'P', entorno.size, '-')
 
                         temporal_parametro = generador.agregar_temporal()
-                        generador.agregar_expresion(temporal_parametro, 'P', env.size, '+')
+                        generador.agregar_expresion(temporal_parametro, 'P', entorno.size, '+')
                         generador.agregar_expresion(temporal_parametro, temporal_parametro, '1', '+')
                         generador.set_stack(temporal_parametro, valor_parametro.valor)
                         generador.nuevo_ent(entorno.size)
@@ -310,74 +314,178 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 
                 if id_func == "println":
                     generador.agregar_print("c", 10)
+            else:
+                funcion = entorno.get_func(id_func)
+                if funcion is not None:
+                    valores_parametros = []
+                    generador_aux = Generador()
+                    generador = generador_aux.get_instance()
+                    size = entorno.size
+                    for parametro in parametros.hijos:
+                        valores_parametros.append(recorrer(parametro, entorno))
+                    temporal = generador.agregar_temporal()
+                    generador.agregar_expresion(temporal, 'P', size+1, '+')
 
-        elif ast.tipoInstruccion == TipoInstruccion.DeclaracionFuncion: #DeclaracionFuncion espera -> id parametros instrucciones
+                    auxiliar = 0
+                    for parametro in valores_parametros:
+                        auxiliar = auxiliar + 1
+                        generador.set_stack(temporal, parametro.valor)
+                        if auxiliar != len(valores_parametros):
+                            generador.agregar_expresion(temporal, temporal, '1', '+')
+                    generador.nuevo_ent(size)
+                    generador.call_fun(id_func)
+                    generador.get_stack(temporal, 'P')
+                    generador.retornar_ent(size)
+
+                    return Return(temporal, funcion[1], True)
+                #En caso que sea struct
+                else:
+                    pass
+
+        elif ast.tipoInstruccion == TipoInstruccion.DeclaracionFuncion: #DeclaracionFuncion espera -> id parametros (tipo)? instrucciones
             id_declar = ast.hijos[0].lexema
             parametros = ast.hijos[1]            
-            instrucciones = ast.hijos[2]
+
+            if len(ast.hijos) == 3:
+                tipo_fun = TipoDato.None_
+                instrucciones = ast.hijos[2]
+            else:
+                tipo_fun = ast.hijos[2]
+                instrucciones = ast.hijos[3]
 
             #Se imprime la definicion
             print("DefinicionFuncion----\n")
             print(id_declar, "id\n")
+            print(parametros, "id\n")
+            print(tipo_fun, "id\n")
+            print(instrucciones, "id\n")
+
+
+            entorno.guardar_func(id_declar, (parametros, tipo_fun ,instrucciones))
+
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+
+            nuevo_entorno = Entorno(entorno)
+            etiqueta_retorno = generador.nueva_etiqueta()
+
+            nuevo_entorno.et_return = etiqueta_retorno
+
+            nuevo_entorno.size = 1
+
+            for parametro in parametros.hijos:
+                print("DeclaracionParametro: ")
+                #recorrer(parametro)
+                if isinstance(parametro, TerminalTipoDato):
+                    nuevo_entorno.guardar_var(parametro.token.lexema, parametro.tipoDato, (parametro.tipoDato == TipoDato.String or parametro.tipoDato == TipoDato.Struct))
+                else:
+                    nuevo_entorno.guardar_var(parametro.lexema, TipoDato.None_, False)
+
+
+            print("antes",generador.en_funcion)
+            generador.agregar_inicio_funcion(id_declar)
+            print("mientras",generador.en_funcion)
+
+            recorrer(instrucciones, nuevo_entorno)
+            
+            if tipo_fun is not TipoDato.None_:
+                generador.poner_etiqueta(etiqueta_retorno)
+
+            generador.agregar_comentario("TERMINA DECLARACION")
+            generador.agregar_fin_funcion()
+            print("despues",generador.en_funcion)
 
             #Se imprimen los parametros
-            recorrer(parametros)
+            #recorrer(parametros)
             #print(parametros, "parametros\n")
 
             print("---------------------\n")
         elif ast.tipoInstruccion == TipoInstruccion.If: #If espera -> condicion instrucciones (else | elif)?
-            condicion = ast.hijos[0]
+            generador_aux = Generador()
+            generador: Generador = generador_aux.get_instance()
 
-            instrucciones = ast.hijos[1]
-            
+            condicion = recorrer(ast.hijos[0], entorno)
 
-
-            print("If-------------------\n")
-            print("Condicion: ")
-            recorrer(condicion)
-
+            #print("If-------------------\n")
+            #print("Condicion: ")
+            #recorrer(condicion)
             #Instrucciones
             #recorrer(instrucciones)
             #print(parametros, "parametros\n")
 
+            if condicion.tipo_retorno != TipoDato.Boolean:
+                #TODO manejo de errores
+                print("La condicion no es de tipo booleana")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "La condicion no es de tipo booleana"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
+                return
+
+            generador.poner_etiqueta(condicion.true_et)
+
+            #Instrucciones
+            recorrer(ast.hijos[1], entorno)
+
             #Se verifica si existe un else o elif en el if
             if len(ast.hijos) > 2:
                 extension = ast.hijos[2]
-                #Si ese es el caso se verifica si es un else o un elif
-                if extension.tipoInstruccion == TipoInstruccion.Else:
-                    print("Else:")
-                    recorrer(extension)
-                elif extension.tipoInstruccion == TipoInstruccion.Elif:
-                    print("Elif:")
-                    recorrer(extension)
+                etiqueta_salida_if = generador.nueva_etiqueta()
+                generador.agregar_goto(etiqueta_salida_if)
+            
+            generador.poner_etiqueta(condicion.false_et)
+
+            if len(ast.hijos) > 2:
+                #Else | Elif
+                recorrer(ast.hijos[2],entorno)
+                generador.poner_etiqueta(etiqueta_salida_if)
+
             print("---------------------\n")
 
+
         elif ast.tipoInstruccion == TipoInstruccion.Else:   #Else espera -> Token(Else) instrucciones
-            for hijo in ast.hijos:
-                #recorrer(hijo)
-                pass
+            recorrer(ast.hijos[1], entorno)
         elif ast.tipoInstruccion == TipoInstruccion.Elif:   #Elif espera -> condicion instrucciones (else | elif)?
-            condicion = ast.hijos[0]
-
-            instrucciones = ast.hijos[1]
             
-            print("Condicion: ")
-            recorrer(condicion)
+            generador_aux = Generador()
+            generador: Generador = generador_aux.get_instance()
 
+            condicion = recorrer(ast.hijos[0], entorno)
+
+            if condicion.tipo_retorno != TipoDato.Boolean:
+                #TODO manejo de errores
+                print("La condicion no es de tipo booleana")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "La condicion no es de tipo booleana"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
+                return
+            
+            #print("Condicion: ")
             #Instrucciones
             #recorrer(instrucciones)
             #print(parametros, "parametros\n")
 
+            generador.poner_etiqueta(condicion.true_et)
+
+            #Instrucciones
+            recorrer(ast.hijos[1], entorno)
+
             #Se verifica si existe un else o elif en el if
             if len(ast.hijos) > 2:
                 extension = ast.hijos[2]
-                #Si ese es el caso se verifica si es un else o un elif
-                if extension.tipoInstruccion == TipoInstruccion.Else:
-                    print("Else:")
-                    recorrer(extension)
-                elif extension.tipoInstruccion == TipoInstruccion.Elif:
-                    print("Elif:")
-                    recorrer(extension)
+                etiqueta_salida_if = generador.nueva_etiqueta()
+                generador.agregar_goto(etiqueta_salida_if)
+            
+            generador.poner_etiqueta(condicion.false_et)
+
+            if len(ast.hijos) > 2:
+                #Else | Elif
+                recorrer(ast.hijos[2],entorno)
+                generador.poner_etiqueta(etiqueta_salida_if)
+                
 
         elif ast.tipoInstruccion == TipoInstruccion.While:  #While espera -> condicion instrucciones
             condicion = ast.hijos[0]
@@ -386,10 +494,8 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
             #print("While---------------\n")
             #recorrer(condicion)
-            
             #recorrer(instrucciones)
-
-            print("---------------------\n")
+            #print("---------------------\n")
 
             generador_aux = Generador()
             generador = generador_aux.get_instance()
@@ -417,8 +523,8 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         elif ast.tipoInstruccion == TipoInstruccion.For:    #For espera ->  var_id rango instrucciones
             variable_id = ast.hijos[0].lexema
             
-            rango = ast.hijos[1] 
-
+            rango = ast.hijos[1]
+            
             instrucciones = ast.hijos[2]
 
             print("For------------------\n")
@@ -444,6 +550,64 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             #recorrer(instrucciones)
 
             print("---------------------\n")
+        
+        elif ast.tipoInstruccion == TipoInstruccion.Return:             #Return espera -> Token(Return) expresion?
+            if entorno.et_return == '':
+                #TODO return fuera de una funcion
+                print("Return fuera de una funcion")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "Return fuera de una funcion"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
+                return
+
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+
+            valor = recorrer(ast.hijos[1], entorno)
+
+            if valor.tipo_retorno == TipoDato.Boolean:
+                temporal_et = generador.nueva_etiqueta()
+                generador.poner_etiqueta(valor.true_et)
+                generador.set_stack('P', '1')
+                generador.agregar_goto(temporal_et)
+                generador.poner_etiqueta(valor.false_et)
+                generador.set_stack('P', '0')
+                generador.poner_etiqueta(temporal_et)
+            else:
+                generador.set_stack('P', valor.valor)
+            generador.agregar_goto(entorno.et_return)
+        
+        elif ast.tipoInstruccion == TipoInstruccion.Continue:
+            if entorno.et_continue == '':
+                #TODO continue fuera de un loop
+                print("Continue fuera de un loop")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "Continue fuera de un loop"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
+                return
+            
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+            generador.agregar_goto(entorno.et_continue)
+        
+        elif ast.tipoInstruccion == TipoInstruccion.Break:
+            if entorno.et_break == '':
+                #TODO break fuera de un loop
+                print("Break fuera de un loop")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "Break fuera de un loop"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
+                return
+            
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+            generador.agregar_goto(entorno.et_break)
 
     elif isinstance(ast, NodoNoTerminal):                       #Si es un nodo no terminal
         if ast.tipoNoTerminal == TipoNoTerminal.Instrucciones:  #Instrucciones espera -> [Instrucciones...]
@@ -452,7 +616,11 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         elif ast.tipoNoTerminal == TipoNoTerminal.DeclaracionParametros:    #DeclaracionParametros espera -> [Declaracion...]
             for parametro in ast.hijos:
                 print("DeclaracionParametro: ")
-                recorrer(parametro)
+                #recorrer(parametro)
+                if isinstance(parametro, TerminalTipoDato):
+                    entorno.guardar_var(parametro.token.lexema, parametro.tipoDato, (parametro.tipoDato == TipoDato.String or parametro.tipoDato == TipoDato.Struct))
+                else:
+                    entorno.guardar_var(parametro.lexema, TipoDato.None_, False)
 
         elif ast.tipoNoTerminal == TipoNoTerminal.Parametros:   #Parametros espera -> [Parametro...]
             for hijo in ast.hijos:
@@ -621,6 +789,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
                         else:
                             #TODO manejo de errores
+                            print("No se puede operar la aritmetica")
+                            error = {}
+                            error['tipo'] = "Semantico"
+                            error['valor'] = "No se puede operar la aritmetica"
+                            #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                            Entorno.errores.append(error)
                             pass
                         return Return(temporal_retorno, TipoDato.String, True)
                     else:
@@ -642,6 +816,12 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 
                 else:
                     #TODO manejo de error
+                    print("Error en operador MenosUnitario")
+                    error = {}
+                    error['tipo'] = "Semantico"
+                    error['valor'] = "El valor no es int o float para el operador MenosUnitario"
+                    #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                    Entorno.errores.append(error)
                     pass
 
             elif ast.operador == TipoExpresionMatematica.Grupo:
@@ -656,7 +836,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
             resultado = Return(None, TipoDato.Boolean, False)
 
-            if valor1 is not TipoDato.Boolean:
+            if valor1.tipo_retorno is not TipoDato.Boolean:
                 valor2 = recorrer(ast.hijos[1],entorno)
 
                 if (valor1.tipo_retorno == TipoDato.Int or valor1.tipo_retorno == TipoDato.Float) and (valor2.tipo_retorno == TipoDato.Int or valor2.tipo_retorno == TipoDato.Float):
@@ -735,16 +915,22 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
                 valor2 = recorrer(ast.hijos[1],entorno)
 
-                if right.type != Type.BOOL:
+                if valor2.tipo_retorno != TipoDato.Boolean:
                     #TODO  manejo de errores
+                    print("La variable no es de tipo booleana")
+                    error = {}
+                    error['tipo'] = "Semantico"
+                    error['valor'] = "La variable no es de tipo booleana"
+                    #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                    Entorno.errores.append(error)
                     return
 
                 final_goto = generador.nueva_etiqueta()
                 temporal_valor2 = generador.agregar_temporal()
-                generador.poner_etiqueta(right.true_lbl)
+                generador.poner_etiqueta(valor2.true_et)
                 generador.agregar_expresion(temporal_valor2, '1', '', '')
                 generador.agregar_goto(final_goto)
-                generador.poner_etiqueta(right.false_lbl)
+                generador.poner_etiqueta(valor2.false_et)
                 generador.agregar_expresion(temporal_valor2, '0', '', '')
                 generador.poner_etiqueta(final_goto)
 
@@ -783,20 +969,71 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
 
         else:
+            generador.agregar_comentario("inicio expresion logica")
+            true_et = ''
+            false_et = ''
+
+            if true_et == '':
+                true_et = generador.nueva_etiqueta()
+
+            if false_et == '':
+                false_et = generador.nueva_etiqueta()
+            
+            etiqueta_and_or = ''
+
+            generador.agregar_comentario("val1")
+            valor1 = recorrer(ast.hijos[0], entorno)
+            generador.agregar_comentario("val1")
+
             if ast.operador == TipoExpresionLogica.And:
-                tipo_1 = obtenerTipo(ast.hijos[0])
-                tipo_2 = obtenerTipo(ast.hijos[1])
-                tipo_resultado = obtenerTipoResultante(tipo_1, tipo_2, TipoExpresionLogica.And)
-                return tipo_resultado
+                etiqueta_and_or = valor1.true_et
             elif ast.operador == TipoExpresionLogica.Or:
-                tipo_1 = obtenerTipo(ast.hijos[0])
-                tipo_2 = obtenerTipo(ast.hijos[1])
-                tipo_resultado = obtenerTipoResultante(tipo_1, tipo_2, TipoExpresionLogica.Or)
-                return tipo_resultado
-            elif ast.operador == TipoExpresionLogica.Not:
-                tipo = obtenerTipo(ast.hijos[0])
-                tipo_resultado = obtenerTipoResultante(tipo, tipo_2, TipoExpresionLogica.Not)
-                return tipo_resultado
+                etiqueta_and_or = valor1.false_et
+
+            if etiqueta_and_or is not '':
+                generador.agregar_comentario("andor")
+                generador.poner_etiqueta(etiqueta_and_or)
+                generador.agregar_comentario("andor")
+                pass
+
+            if ast.operador is not TipoExpresionLogica.Not:
+                generador.agregar_comentario("val2")
+                valor2 = recorrer(ast.hijos[1], entorno)
+                generador.agregar_comentario("val2")
+
+            if ast.operador == TipoExpresionLogica.And:
+                true_et = valor2.true_et
+                false_et = valor1.false_et +":"+ valor2.false_et
+
+            elif ast.operador == TipoExpresionLogica.Or:
+                true_et = valor1.true_et + ":" + valor2.true_et
+                false_et = valor2.false_et
+            else:
+                false_et = valor1.true_et
+                true_et = valor1.false_et
+            
+            if valor1.tipo_retorno is not TipoDato.Boolean:
+                #TODO manejo de errores
+                print("La variable no es de tipo booleana")
+                error = {}
+                error['tipo'] = "Semantico"
+                error['valor'] = "La variable no es de tipo booleana"
+                #error['posicion']=str(ast.linea)+","+str(ast.columna)
+                Entorno.errores.append(error)
+                return
+            
+            if ast.operador is not TipoExpresionLogica.Not:
+                if valor2.tipo_retorno is not TipoDato.Boolean:
+                    return
+            
+            generador.agregar_espacio()
+
+            generador.agregar_comentario("fin expresion logica")
+
+            retorno = Return(None, TipoDato.Boolean, False)
+            retorno.true_et = true_et
+            retorno.false_et = false_et
+            return retorno
 
     elif isinstance(ast, TerminalTipoDato):                         #TerminalTipoDato espera -> Token TipoDato     
 
@@ -823,12 +1060,16 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 generador.agregar_goto(true_et)                 #Se hace un goto hacia la asignacion de True
                 generador.agregar_comentario("goto de True")
                 generador.agregar_goto(false_et)
+
+                booleano = True
             else:                                               #Si es False la variable
                 generador.agregar_goto(false_et)                #Se hace un goto hacia la asignacion de False
                 generador.agregar_comentario("goto de False")
                 generador.agregar_goto(true_et)
+
+                booleano = False
             
-            retorno = Return(bool(ast.token.lexema), ast.tipoDato, False)   #Se retorna el booleano en un Return
+            retorno = Return(booleano, ast.tipoDato, False)   #Se retorna el booleano en un Return
             
             #Se establecen las etiquetas en el retorno
             retorno.true_et = true_et
@@ -839,7 +1080,11 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         elif ast.tipoDato == TipoDato.String:                           #Si es un string
             temporal_retorno = generador.agregar_temporal()             #Se crea una temporal que almacene el string
             generador.agregar_expresion(temporal_retorno, 'H', '', '')  #Se iguala la posicion del heap a la temporal
-            generador.set_heap('H', len(ast.token.lexema))              #Se establece en la posicion el size del string
+
+            #TODO revisar entre los dos
+            #generador.set_heap('H', len(ast.token.lexema))              #Se establece en la posicion el size del string
+            generador.set_heap('H', 0)              #Se establece en la posicion el size del string
+
             generador.siguiente_heap()                                  #Se mueve el heap una posicion
             
             for caracter in str(ast.token.lexema):                      #Para cada caracter en el string se guarda el ASCII en la posicion del heap
@@ -853,8 +1098,15 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             #Se devuelve un Return con el temporal
             return Return(temporal_retorno, ast.tipoDato, True)
         else:
+            #TODO Manejo de error  
+            print("Tipo de dato incorrecto")
+            error = {}
+            error['tipo'] = "Semantico"
+            error['valor'] = "Tipo de dato incorrecto"
+            #error['posicion']=str(ast.linea)+","+str(ast.columna)
+            Entorno.errores.append(error)
             pass
-            #TODO Manejo de error    
+              
 
     elif isinstance(ast, Terminal):                                 #Terminal espera -> Token
         print("Lexema:",ast.token.lexema)
@@ -869,6 +1121,11 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         if variable is None:
             #TODO Manejo de errores
             print("Variable no declarada")
+            error = {}
+            error['tipo'] = "Semantico"
+            error['valor'] = "Variable no declarada"
+            #error['posicion']=str(ast.linea)+","+str(ast.columna)
+            Entorno.errores.append(error)
             return            
 
         temporal = generador.agregar_temporal()
@@ -917,7 +1174,13 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         if variable is None:
             #TODO Manejo de errores
             print("Variable no declarada")
-            return            
+            error = {}
+            error['tipo'] = "Semantico"
+            error['valor'] = "Variable no declarada"
+            #error['posicion']=str(ast.linea)+","+str(ast.columna)
+            Entorno.errores.append(error)
+            return
+            
 
         temporal = generador.agregar_temporal()
 
@@ -1036,7 +1299,7 @@ def obtenerTipo(nodo: Nodo):
                 return tipo_resultado
             elif nodo.operador == TipoExpresionLogica.Not:
                 tipo = obtenerTipo(nodo.hijos[0])
-                tipo_resultado = obtenerTipoResultante(tipo, tipo_2, TipoExpresionLogica.Not)
+                tipo_resultado = obtenerTipoResultante(tipo, tipo, TipoExpresionLogica.Not)
                 return tipo_resultado
     elif isinstance(nodo, TerminalTipoDato):
         return nodo.tipoDato

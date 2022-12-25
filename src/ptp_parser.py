@@ -8,7 +8,7 @@ from .ast.ast import *
 ##### Lexer ######
 #import lex
 import decimal
-
+from src.compiler.utilities.Entorno import Entorno
 sys.set_int_max_str_digits(50000)
 
 tokens = (
@@ -33,6 +33,7 @@ tokens = (
     'NEQ',
     'ASSIGN',
     'STRUCT',
+    'RETYPE',
     'LT',
     'GT',
     'LEQ',
@@ -97,6 +98,7 @@ def t_NUMBER(t):
     return t
 
 
+t_RETYPE = r'->'
 t_COLON = r':'
 t_LEQ = r'<='
 t_GEQ = r'>='
@@ -203,9 +205,12 @@ def t_RBRA(t):
     return t
 
 def t_error(t):
-    raise SyntaxError("Unknown symbol %r" % (t.value[0],))
-    print("Skipping", repr(t.value[0]))
-    t.lexer.skip(1)
+    print("Illegal character '%s'" % t.value[0])
+    error = {}
+    error['tipo'] = "Lexico"
+    error['valor'] = str(t.value[0])
+    #error['posicion']=str(ast.linea)+","+str(ast.columna)
+    Entorno.errores.append(error)
 
 # I implemented INDENT / DEDENT generation as a post-processing filter
 
@@ -469,13 +474,18 @@ def p_file_input(p):
 # funcdef: [decorators] 'def' NAME parameters ':' suite
 # ignoring decorators
 def p_funcdef(p):
-    "funcdef : DEF NAME parameters COLON suite"
+    """funcdef : DEF NAME parameters COLON suite
+               | DEF NAME parameters RETYPE type COLON suite
+    """
     #p[0] = ast.FunctionDef(p[2], args=ast.arguments([ast.arg(x, None) for x in p[3]], None, [], [], None, []), body=p[5], decorator_list=[], returns=None)
     func_def = NodoInstruccion(TipoInstruccion.DeclaracionFuncion)
     token_id = Token(p[2], p.lineno(2), p.lexspan(2)[0])
-    func_def.agregarhijos([token_id,p[3],p[5]])    
-    p[0] = func_def
-
+    if len(p) == 6:
+        func_def.agregarhijos([token_id,p[3],p[5]])    
+        p[0] = func_def
+    else:
+        func_def.agregarhijos([token_id,p[3],p[5],p[7]])    
+        p[0] = func_def
 # parameters: '(' [varargslist] ')'
 
 
@@ -504,7 +514,7 @@ def p_varargslist(p):
         p[0] = p[1]
     elif len(p) == 4:
         if isinstance(p[1], str):
-            token_id = Token(p[2], p.lineno(2), p.lexspan(2)[0])
+            token_id = Token(p[1], p.lineno(1), p.lexspan(1)[0])
             terminal = TerminalTipoDato(token_id, p[3])
             parametros = NodoNoTerminal(TipoNoTerminal.DeclaracionParametros)
             parametros.agregarhijo(terminal)
@@ -1150,8 +1160,12 @@ def p_argument(p):
 
 
 def p_error(p):
-    # print "Error!", repr(p)
-    raise SyntaxError(p)
+    print("error Sintactico")
+    error = {}
+    error['tipo'] = "Sintactico"
+    error['valor'] = "token no esperdo: " + str(p.value)
+    #error['posicion']=str(ast.linea)+","+str(ast.columna)
+    Entorno.errores.append(error)
 
 
 class PyToPyParser(object):
