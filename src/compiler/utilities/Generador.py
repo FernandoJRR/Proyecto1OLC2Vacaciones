@@ -380,7 +380,7 @@ class Generador:
         self.agregar_fin_funcion()      #Se agrega el fin de la funcion    
         self.en_nativas = False         #Se desacriva la flag que indica que estamos en una funcion nativa
         
-    #Metodo que agrega al C3D en Go la funcion nativa print_array
+    #==================================== Metodo que agrega al C3D en Go la funcion nativa print_list
     def fprint_array(self):
     
         #Se agregan los triggers para moverse por el array
@@ -389,15 +389,15 @@ class Generador:
 
         self.fprint_string()
 
-        if(self.print_array):   #Se retornasi estamos en otro print_array
+        if(self.print_list):   #Se retornasi estamos en otro print_list
             return
 
-        #Si no estamos en un print_array
+        #Si no estamos en un print_list
 
 
-        self.print_array = True                     #Se activa la flag que indica que estamos en un print_array
+        self.print_list = True                     #Se activa la flag que indica que estamos en un print_list
         self.en_nativas = True                      #Se activa la flag que indica que estamos en una funcion nativa
-        self.agregar_inicio_funcion('print_array')
+        self.agregar_inicio_funcion('print_list')
 
         return_et = self.nueva_etiqueta()               #Se agrega etiqueta para moverse fuera de la funcion
 
@@ -423,7 +423,7 @@ class Generador:
 
         puntero_inicial = self.agregar_temporal()       #Se agrega un temporal que apunte al inicio del array
 
-        self.agregar_expresion(temp_, temp_h, '1', '+') #Se aumenta en uno la posicion del puntero del heap
+        self.agregar_expresion(temp_h, temp_h, '1', '+') #Se aumenta en uno la posicion del puntero del heap
 
         temp_c = self.agregar_temporal()                    #Se agrega temporal de comparacion
 
@@ -447,7 +447,7 @@ class Generador:
             trigger1 = True
 
         #Se recorren los elementos en heap_s del entorno actual
-        for elemento in Environment.heap_s:
+        for elemento in Entorno.heap_s:
 
             #Por cada elemento se agrega un goto condicional hacial la etiqueta de imprimir string
             self.agregar_if(elemento, temp_c, '==', print_s)
@@ -479,7 +479,7 @@ class Generador:
             self.agregar_expresion(temp_aux_h, temp_h, '', '')         #Mover valor de heap a auxiliar
             self.agregar_expresion(contador, '0', '', '')              #Hace que valor de contador sea 0
             self.set_stack(temp_p, temp_c)                          #Mover valor de temporal de comparacion al stack
-            self.call_fun("print_array")                            #Se agrega llamada a print_array
+            self.call_fun("print_list")                            #Se agrega llamada a print_list
 
             self.agregar_expresion(contador, temp_aux_cont, '1', '+')   #Se hace que contador tenga valor del auxiliar mas 1
             self.agregar_expresion(size, temp_aux_size, '', '')         #Se hace que size tenga el valor del auxiliar
@@ -524,7 +524,9 @@ class Generador:
         self.agregar_expresion(contador, '0', '', '')   #El contador se convierte en 0
         self.agregar_fin_funcion()                      #Se agrega final de funcion
         self.en_nativas = False                         #Se desactiva la flag que indica que estamos en una funcion nativa
-        
+
+
+
     #Metodo que realiza operaciones ingresadas
     def operaciones(self, left, right, op):
         #Se intenta operar

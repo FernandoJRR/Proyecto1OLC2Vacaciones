@@ -325,21 +325,22 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                     elif valor_parametro.tipo_retorno == TipoDato.List:
                         generador.agregar_expresion('P', 'P', entorno.size, '+')
                         generador.fprint_array()
-                        generador.agregar_expresion('P', 'P', entorno.size, '-')
+                        generador.agregar_expresion('P', 'P',entorno.size, '-')
 
                         temporal_parametro = generador.agregar_temporal()
-                        generador.agregar_expresion(temporal_parametro, 'P', entorno.size, '+')
+                        generador.agregar_expresion(temporal_parametro, 'P',entorno.size, '+')
                         generador.agregar_expresion(temporal_parametro, temporal_parametro, '1', '+')
                         generador.set_stack(temporal_parametro, valor_parametro.valor)
                         generador.nuevo_ent(entorno.size)
-                        generador.call_fun('print_array')
+                        generador.call_fun('print_list')
 
                         temporal = generador.agregar_temporal()
                         generador.get_stack(temporal, 'P')
-                        generador.retirar_ent(entorno.size)
+                        generador.retornar_ent(entorno.size)
                     else:
                         #TODO: Struct y manejo de errores
                         pass
+
 
                     generador.agregar_print("c", 32)
                 
@@ -872,6 +873,74 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             for hijo in ast.hijos:
                 print("Atributo: ")
                 recorrer(hijo)
+        # =================== OBTENER LOS VALORES PARA UN ARREGLO  ======================================
+        elif ast.tipoNoTerminal == TipoNoTerminal.DeclaracionLista:
+            generador_aux = Generador()                 #Se crea un Generador
+            generador = generador_aux.get_instance()    #Se instancia el generador estadico
+            
+            elementos = []
+            for element in ast.hijos:
+                valor = recorrer(element, entorno)
+                elementos.append(valor.valor)
+                if valor.tipo_retorno == TipoDato.List:
+                    temp_auxiliar = generador.agregar_temporal()
+                    generador.agregar_expresion(
+                        temp_auxiliar, valor.valor, '', '')
+                    entorno.heap_a.append(temp_auxiliar)
+            ret_temp = generador.agregar_temporal()          
+            generador.agregar_expresion(ret_temp, 'H', '', '')     
+            generador.set_heap('H', len(ast.hijos))
+            generador.siguiente_heap()
+            for elemento in elementos:
+                generador.set_heap('H', elemento)
+                generador.siguiente_heap()
+            generador.agregar_expresion(ret_temp, ret_temp, '0.12837', '+')
+            return Return(ret_temp, TipoDato.List, True)
+            # =================== FIN OBTENER LOS VALORES PARA UN ARREGLO  ======================================
+        # =================== ACCEDER AL INDICE DE  UN ARREGLO   ======================================
+        elif ast.tipoNoTerminal == TipoNoTerminal.IndiceLista:
+            generador_aux = Generador()
+            generador = generador_aux.get_instance()
+            generador.agregar_comentario('compilacion de acceso arreglos')
+            print(ast.hijos[0].token.lexema)
+            array = entorno.get_var(ast.hijos[0].token.lexema)
+            if array is None:
+                print("error no existe el arreglo")
+                return
+            temp = generador.agregar_temporal()
+            temp_pos = array.posicion
+            if not array.es_global:
+                temp_pos = generador.agregar_temporal()
+                generador.agregar_expresion(temp_pos, 'P', array.pos, '+')
+            generador.get_stack(temp, temp_pos)
+            tipo = TipoDato.Float
+            #print(generador.dict_temp[temp])
+            for element in ast.hijos[1]:
+                elemento = recorrer(elemento, entorno)
+                sumado = generador.agregar_temporal()
+                length = generador.agregar_temporal()
+                generador.get_heap(length, temp)
+                generador.agregar_expresion(sumado, elemento.valor, temp, '+')
+                #self.agregarError(length, elemento.value)
+                # print(generador.dict_temp[temp])
+                generador.get_heap(temp, sumado)
+                # print(generador.dict_temp[temp])
+                if(generador.dict_temp[temp] % 1 != 0):
+                    if(generador.dict_temp[temp] % 1 == 0.12837):
+                        if(generador.heap[int(generador.dict_temp[temp])] == 0):
+                            tipo = tipoDato.String
+                        else:
+                            tipo = tipoDato.List
+                    else:
+                        tipo = Type.String
+                else:
+                    tipo = Type.Int
+            # print(0.123123 % 1)
+            # print(generador.heap[0:50])
+            # print(generador.dict_temp[temp])
+            # print(generador.stack)
+            # print(generador.dict_temp)
+            return Return(temp, tipo, True)
 
     elif isinstance(ast, NodoExpresion):
 
