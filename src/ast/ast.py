@@ -75,6 +75,8 @@ class TipoDato(Enum):
     Continue = 8
     Break = 9
 
+    Char = 10
+
 class Token(object):
     lexema: str
     linea: int
@@ -635,7 +637,8 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                     generador.agregar_comentario("=========== INICIO CILCO FOR ============== ")
                     temp1 = generador.agregar_temporal()
                     #lit_temp1 = Primitivo(temp1, Type.INT, self.linea, self.columna)
-                    lit_temp1 = Return(temp1, TipoDato.Int, True)
+                    #lit_temp1 = Return(temp1, TipoDato.Int, True)
+                    lit_temp1 = TerminalTipoDato(Token(temp1, 0,0), TipoDato.Int)
                     #generador.add_expression(temp1, left_val.valor, '', '')
                     generador.agregar_expresion(temp1,iterando.inicio, '', '')
                     #continue_lbl = generador.new_label()
@@ -659,20 +662,26 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                     nuevo_entorno.et_continue = continue_lbl
 
                     # declaration = Declaracion(
-                    #     self.variable, lit_temp1, self.linea, self.columna)
+                    #      self.variable, lit_temp1, self.linea, self.columna)
+                    declaracion = NodoInstruccion(TipoInstruccion.Asignacion)
+                    id_token = Token(variable_id, 0, 0)
+                    declaracion.agregarhijo(id_token)
+                    declaracion.agregarhijo(TipoDato.Int)
+                    declaracion.agregarhijo(lit_temp1)
+                    recorrer(declaracion,nuevo_entorno)
                     generador.agregar_comentario("Declarando variable iterador")
             
                     #Agregamos la variable a la tabla de simbolos
-                    nueva_variable = entorno.guardar_var(
-                        variable_id, TipoDato.Int,False, "")
+                    #nueva_variable = entorno.guardar_var(
+                    #   variable_id, TipoDato.Int,False, "")
             
-                    posicion_temporal = nueva_variable.posicion     #Se obtiene la posicion en la tabla de simbolos de la variable
+                    #posicion_temporal = nueva_variable.posicion     #Se obtiene la posicion en la tabla de simbolos de la variable
 
-                    if not nueva_variable.es_global:                                                        #Se comprueba si la variable actual es global
-                        posicion_temporal = generador.agregar_temporal()                                    #Si es global se crea una temporal
-                        generador.agregar_expresion(posicion_temporal, 'P', nueva_variable.posicion, "+")   #El valor guardada en el stack se guarda en la temporal
+                    #if not nueva_variable.es_global:                                                        #Se comprueba si la variable actual es global
+                    #    posicion_temporal = generador.agregar_temporal()                                    #Si es global se crea una temporal
+                    #    generador.agregar_expresion(posicion_temporal, 'P', nueva_variable.posicion, "+")   #El valor guardada en el stack se guarda en la temporal
                         
-                    generador.set_stack(posicion_temporal,lit_temp1.valor) #Se guarda en el stack en la posicion indicada el valor
+                    #generador.set_stack(posicion_temporal,lit_temp1.valor) #Se guarda en el stack en la posicion indicada el valor
                     #Se agrega un salto de linea en el C3D
                     generador.agregar_espacio()
 
@@ -1386,7 +1395,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
         generador_aux = Generador()
         generador = generador_aux.get_instance()
         
-        generador.agregar_comentario("Se accede a la variable ", ast.lexema)
+        generador.agregar_comentario(f'Se accede a la variable {ast.lexema}')
         
         variable = entorno.get_var(ast.lexema)
 
