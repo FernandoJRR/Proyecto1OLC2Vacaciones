@@ -25,6 +25,12 @@ class Return:
         self.true_et = ''
         self.false_et = ''
 
+class Rango:
+    def __init__(self, inicio, fin, error = False): #(5) , (1,10)
+        self.inicio = inicio
+        self.fin = fin
+        self.Error = error
+
 class Expresion(ABC):
     def __init__(self, linea, columna):
         self.linea = linea
