@@ -1187,7 +1187,6 @@ def parse_input(input):
     parser = PyToPyParser()
     print("input\n",input)
     ast = parser.parse(input)
-    print(ast,"\n")
     print("Done")
     
     return ast

@@ -3,6 +3,8 @@ from ..compiler.utilities.Abstract import *
 #from ..compiler.utilities.Generador import Generador
 
 #Cada tipo tiene asignada un booleano que indica si puede tener mas instrucciones dentro o no
+nivel_ast = 0
+
 class TipoInstruccion(Enum):
     #Instrucciones que NO pueden tener mas instrucciones anidadas 0-6
     DeclaracionVariable = 0
@@ -127,17 +129,21 @@ class NodoRaiz(Nodo):
     pass
 
 class NodoNoTerminal(Nodo):
-    tipoNoTerminal: TipoNoTerminal;
+    tipoNoTerminal: TipoNoTerminal
 
     def __init__(self, tipoNoTerminal: TipoNoTerminal):
         super().__init__()
         self.tipoNoTerminal = tipoNoTerminal
         
     def __str__(self):
+        global nivel_ast
         string = f"{self.tipoNoTerminal}(\n"
+        nivel_ast = nivel_ast+1
+        string += str("\t"*nivel_ast)
         for hijo in self.hijos:
             string += str(hijo)+" "
-        return string + "\n)"
+        nivel_ast = nivel_ast-1
+        return string + "\n" + str("\t"*nivel_ast) + ")" 
 
 class NodoInstruccion(Nodo):
     tipoInstruccion: TipoInstruccion
@@ -147,10 +153,14 @@ class NodoInstruccion(Nodo):
         self.tipoInstruccion = tipoInstruccion
 
     def __str__(self):
+        global nivel_ast
         string = f"{self.tipoInstruccion}(\n"
+        nivel_ast = nivel_ast+1
+        string += str("\t"*nivel_ast)
         for hijo in self.hijos:
             string += str(hijo)+" "
-        return string + "\n)"
+        nivel_ast = nivel_ast-1
+        return string + "\n" + str("\t"*nivel_ast) + ")" 
 
 class NodoExpresion(Nodo):
     operador : TipoExpresionMatematica | TipoExpresionRelacional | TipoExpresionLogica
@@ -165,9 +175,13 @@ class NodoExpresion(Nodo):
 
     def __str__(self):
         string = f"{self.operador}(\n"
+        global nivel_ast
+        nivel_ast = nivel_ast+1
+        string += str("\t"*nivel_ast)
         for hijo in self.hijos:
             string += str(hijo)+" "
-        return string + "\n)"                             
+        nivel_ast = nivel_ast-1
+        return string +  "\n" + str("\t"*nivel_ast) + ")" 
 
 def recorrer(ast: Nodo, entorno): #compile == recorrer
     # Se obtiene el tipo de nodo a recorrer
@@ -664,7 +678,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                     # declaration = Declaracion(
                     #      self.variable, lit_temp1, self.linea, self.columna)
                     declaracion = NodoInstruccion(TipoInstruccion.Asignacion)
-                    id_token = Token(variable_id, 0, 0)
+                    id_token = Token(variable_id, ast.hijos[0].linea, ast.hijos[0].columna)
                     declaracion.agregarhijo(id_token)
                     declaracion.agregarhijo(TipoDato.Int)
                     declaracion.agregarhijo(lit_temp1)
@@ -732,7 +746,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             
                     #Agregamos la variable a la tabla de simbolos
                     nueva_variable = entorno.guardar_var(
-                        variable_id, TipoDato.Char,False, "")
+                        variable_id, TipoDato.Char,False, "", ast.hijos[0].linea, ast.hijos[0].columna)
             
                     posicion_temporal = nueva_variable.posicion     #Se obtiene la posicion en la tabla de simbolos de la variable
 
@@ -767,7 +781,9 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             print("Struct---------------\n")
             print(id_struct, " id_struct")
             
-            recorrer(campos)
+            #recorrer(campos)
+
+            entorno.guardar_struct(id_struct, campos)
             
             #recorrer(instrucciones)
 

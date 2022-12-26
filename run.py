@@ -27,27 +27,33 @@ class C3DArea(FlaskForm):
     #source_code = CodeMirrorField(config={'lineNumbers': 'true', 'readOnly': 'true', 'mode': 'text/x-go'})
     submit = SubmitField('Submit')
 
+class ASTArea(FlaskForm):
+    source_code = CodeMirrorField(id="ast_area", config={'lineNumbers': 'false', 'readOnly': 'true'})
+    #source_code = CodeMirrorField(config={'lineNumbers': 'true', 'readOnly': 'true', 'mode': 'text/x-go'})
+    submit = SubmitField('Submit')
 @app.route("/")
 def index():
     return render_template("index.html")
 
-from src.ptp_parser import parse_input
+from src.ptp_parser import parse_input, nivel_ast
 from src.ast.ast import recorrer
 @app.route("/editor", methods=['GET', 'POST'])
 def editor():
     editor_area = EditorForm()
     c3d_area = C3DArea()
+    ast_area = ASTArea()
 
     tabla_simbolos = []
 
     if editor_area.validate_on_submit():
         text = editor_area.source_code.data
         
-        (c3d, tabla_simbolos) = generar_c3d(text)
+        (c3d, tabla_simbolos, ast) = generar_c3d(text)
 
         c3d_area.source_code.data = c3d
+        ast_area.source_code.data = ast
     
-    return render_template("editor.html", editor_area=editor_area, c3d_area=c3d_area, length=len(tabla_simbolos), tabla_simbolos=tabla_simbolos)
+    return render_template("editor.html", editor_area=editor_area, c3d_area=c3d_area, ast_area=ast_area, length=len(tabla_simbolos), tabla_simbolos=tabla_simbolos)
 
 def generar_c3d(input):
         generador_aux = Generador()
@@ -73,7 +79,7 @@ def generar_c3d(input):
         except Exception as e:
             print("Error de compilacion", e)
         """
-        return (c3d,lista_variables)
+        return (c3d,lista_variables, ast)
 
 def print_var_entorno(entorno: Entorno, lista):
     for variable in entorno.variables:

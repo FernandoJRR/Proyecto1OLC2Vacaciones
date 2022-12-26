@@ -48,6 +48,13 @@
     </tr>
     {%endfor%}
   </table>
+  <form method="post">
+    <div style="margin:1%">
+      <h4>AST:</h4>
+      {{  ast_area.csrf_token }}
+      {{  ast_area.source_code }}
+    </div>
+  </form>
   <h2 style="margin-left:1%">Tabla de Errores</h2>
   <h2 style="margin-left:1%">Tabla de Optimizacion</h2>
 {% endblock %}
