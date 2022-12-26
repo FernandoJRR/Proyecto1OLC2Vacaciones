@@ -38,14 +38,16 @@ def editor():
     editor_area = EditorForm()
     c3d_area = C3DArea()
 
+    tabla_simbolos = []
+
     if editor_area.validate_on_submit():
         text = editor_area.source_code.data
         
-        c3d = generar_c3d(text)
+        (c3d, tabla_simbolos) = generar_c3d(text)
 
         c3d_area.source_code.data = c3d
     
-    return render_template("editor.html", editor_area=editor_area, c3d_area=c3d_area)
+    return render_template("editor.html", editor_area=editor_area, c3d_area=c3d_area, length=len(tabla_simbolos), tabla_simbolos=tabla_simbolos)
 
 def generar_c3d(input):
         generador_aux = Generador()
@@ -60,9 +62,26 @@ def generar_c3d(input):
         recorrer(ast, nuevo_entorno)
 
         c3d = generador.get_codigo()
+
+        lista_variables = []
+        print_var_entorno(nuevo_entorno,lista_variables)
+        print("ID | Tipo | Linea | Columna")
+        for var in lista_variables:
+            print(f'{var[0]},{var[1]},{var[2]},{var[3]}')
         """
         try:
         except Exception as e:
             print("Error de compilacion", e)
         """
-        return c3d
+        return (c3d,lista_variables)
+
+def print_var_entorno(entorno: Entorno, lista):
+    for variable in entorno.variables:
+        simbolo = entorno.variables[variable]
+        lista.append((variable, str(simbolo.tipo).split(".")[1], simbolo.linea, simbolo.columna))
+    
+    for funcion in entorno.funciones:
+        lista.append((funcion, "Funcion", "-", "-"))
+
+    for anidado in entorno.ent_anidados:
+        print_var_entorno(anidado, lista)

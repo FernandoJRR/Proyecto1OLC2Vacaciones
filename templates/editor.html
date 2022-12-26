@@ -32,6 +32,22 @@
     </div>
   </form>
   <h2 style="margin-left:1%">Tabla de Simbolos</h2>
+  <table border="2" style="width: 98%;margin-left: 1%;">
+    <tr>
+      <th>Identificador</th>
+      <th>Tipo</th>
+      <th>Linea</th>
+      <th>Columna</th>
+    </tr>
+    {%for i in range(0,length)%}
+    <tr>
+      <td>{{tabla_simbolos[i][0]}}</td>
+      <td>{{tabla_simbolos[i][1]}}</td>
+      <td>{{tabla_simbolos[i][2]}}</td>
+      <td>{{tabla_simbolos[i][3]}}</td>
+    </tr>
+    {%endfor%}
+  </table>
   <h2 style="margin-left:1%">Tabla de Errores</h2>
   <h2 style="margin-left:1%">Tabla de Optimizacion</h2>
 {% endblock %}

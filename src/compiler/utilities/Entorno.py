@@ -3,7 +3,7 @@ from .Abstract import *
 
 class Simbolo:
     
-    def __init__(self, id, tipo, posicion, es_global, en_heap, struct=None, posicion_heap=False):
+    def __init__(self, id, tipo, posicion, es_global, en_heap, struct=None, posicion_heap=False, linea=0, columna=0):
         self.id = id
         self.tipo = tipo
         self.posicion = posicion
@@ -12,6 +12,9 @@ class Simbolo:
         self.struct = struct
         self.posicion_heap = posicion_heap
         self.valor = None
+
+        self.linea = linea
+        self.columna = columna
 
     def __str__(self):
         return f'Id:{self.id},Tipo{self.tipo},Posicion:{self.posicion},Global:{self.es_global},Heap:{self.en_heap}'        
@@ -24,6 +27,8 @@ class Entorno:
     input_ = ""
     heap_a = []
     heap_s = []
+
+    ent_anidados = []
     
     def __init__(self, entorno_anterior):
         self.variables = {}
@@ -31,12 +36,15 @@ class Entorno:
         self.structs = {}
         self.entorno_anterior = entorno_anterior
         self.size = 0
+        self.ent_anidados = []
         self.et_break = None
         self.et_continue = None
         self.et_return = None
         
         if entorno_anterior is not None:
-            self.size = self.entorno_anterior
+            entorno_anterior.ent_anidados.append(self)
+
+            self.size = self.entorno_anterior.size
             self.et_break = self.entorno_anterior.et_break
             self.et_continue = self.entorno_anterior.et_continue
             self.et_return = self.entorno_anterior.et_return
@@ -91,7 +99,7 @@ class Entorno:
     
     #Metodo que almacena una variable en el entorno
     #RETORNA: Simbolo de la variable
-    def guardar_var(self, id_var, tipo, en_heap, tipo_struct=''):
+    def guardar_var(self, id_var, tipo, en_heap, tipo_struct='', linea=0, columna=0):
         env = self                              #Se setea el entorno
 
         #Se recorren los entornos hacia el entorno padre hasta que se llega al entorno raiz
@@ -100,10 +108,14 @@ class Entorno:
             #Se comprueba si el id existe en el entorno actual
             if id_var in env.variables.keys():
 
+                linea_sym = env.variables[id_var].linea
+                columna_sym = env.variables[id_var].columna
+
                 #Si el id existe se hace que el simbolo ocupe el valor del id
                 env.variables[id_var] = Simbolo(
                     id_var, tipo, env.variables[id_var].posicion,
-                    env.entorno_anterior == None, en_heap, tipo_struct
+                    env.entorno_anterior == None, en_heap, tipo_struct,
+                    linea=linea_sym, columna=columna_sym
                 )
                 
                 #Se hace que las variables del entorno sean las variables del entorno actual
@@ -119,7 +131,7 @@ class Entorno:
         if(id_var[-1] == '#'):
             id_var = id_var[0:-1]
             
-        nuevo_simbolo = Simbolo(id_var, tipo, self.size, self.entorno_anterior == None, en_heap, tipo_struct)
+        nuevo_simbolo = Simbolo(id_var, tipo, self.size, self.entorno_anterior == None, en_heap, tipo_struct, linea=linea, columna=columna)
         
         self.size += 1                          #Se aumenta el espacio del entorno en 1
 

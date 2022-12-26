@@ -176,15 +176,22 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
     if isinstance(ast, NodoInstruccion):                        #Si es un nodo de instruccion
         if ast.tipoInstruccion == TipoInstruccion.Asignacion:   #Asignacion espera -> id tipo? valor
             
+            
             #Se comprueba si el primer hijo es un token
             if isinstance(ast.hijos[0], Token):
                 #Se obtiene el id al que se quiere asignar
                 id_var = ast.hijos[0].lexema
+                linea_var = ast.hijos[0].linea
+                columna_var = ast.hijos[0].columna
             elif isinstance(ast.hijos[0], Terminal):
                 #Se obtiene el id al que se quiere asignar
                 id_var = ast.hijos[0].token.lexema
+                linea_var = ast.hijos[0].token.linea
+                columna_var = ast.hijos[0].token.columna
             else:
-                id_var = ast.hijos[0]                
+                id_var = ast.hijos[0]
+                linea_var = 0            
+                columna_var = 0            
             
             #Se verifica el tipo de dato a asignar
             if isinstance(ast.hijos[1], TipoDato):              #Se comprueba si el tipo fue indicado explicitamente
@@ -195,6 +202,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             #Se imprime la asignacion
             print("Asignacion-----------\n")
             print(id_var, "id\n")
+            print(linea_var,columna_var, "posicion\n")
             #print(tipo_var, "tipo\n")
             print(valor_var, "recorrido\n")
             print("---------------------\n")
@@ -214,7 +222,11 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
             #Agregamos la variable a la tabla de simbolos
             nueva_variable = entorno.guardar_var(
-                id_var, tipo_var, (valor.tipo_retorno == TipoDato.String or valor.tipo_retorno == TipoDato.Struct or valor.tipo_retorno == TipoDato.List), valor.tipo_struct
+                id_var, tipo_var, 
+                (valor.tipo_retorno == TipoDato.String or valor.tipo_retorno == TipoDato.Struct or valor.tipo_retorno == TipoDato.List), 
+                valor.tipo_struct,
+                linea_var,
+                columna_var
             )
             
             posicion_temporal = nueva_variable.posicion     #Se obtiene la posicion en la tabla de simbolos de la variable
@@ -249,7 +261,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
             print("Llamada-------------\n")
             print(id_func, "id\n")
             #Se imprimen los parametros
-            #recorrer(parametros)
+            print(parametros.hijos[0], "parametros\n")
             #print(parametros, "parametros\n")
             print("---------------------\n")
             
@@ -314,6 +326,55 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 
                 if id_func == "println":
                     generador.agregar_print("c", 10)
+            elif id_func == "upper":
+                valor = recorrer(parametros.hijos[0], entorno)
+                generador_aux = Generador()
+                generador = generador_aux.get_instance()
+
+                generador.f_to_upper()
+                temporal_parametro = generador.agregar_temporal()
+
+                generador.agregar_expresion(temporal_parametro, 'P', entorno.size, '+')
+                generador.agregar_expresion(temporal_parametro, temporal_parametro, '1', '+')
+
+                generador.set_stack(temporal_parametro, valor.valor)
+
+                generador.nuevo_ent(entorno.size)
+
+                generador.call_fun("to_upper")
+
+                temporal1 = generador.agregar_temporal()
+                temporal2 = generador.agregar_temporal()
+
+                generador.agregar_expresion(temporal2, 'P', '1', '+')
+                generador.get_stack(temporal1, temporal2)
+
+                return Return(temporal1, TipoDato.String, True)
+            elif id_func == "lower":
+                valor = recorrer(parametros.hijos[0], entorno)
+
+                generador_aux = Generador()
+                generador = generador_aux.get_instance()
+
+                generador.f_to_lower()
+                temporal_parametro = generador.agregar_temporal()
+
+                generador.agregar_expresion(temporal_parametro, 'P', entorno.size, '+')
+                generador.agregar_expresion(temporal_parametro, temporal_parametro, '1', '+')
+
+                generador.set_stack(temporal_parametro, valor.valor)
+
+                generador.nuevo_ent(entorno.size)
+
+                generador.call_fun("to_lower")
+
+                temporal1 = generador.agregar_temporal()
+                temporal2 = generador.agregar_temporal()
+
+                generador.agregar_expresion(temporal2, 'P', '1', '+')
+                generador.get_stack(temporal1, temporal2)
+
+                return Return(temporal1, TipoDato.String, True)
             else:
                 funcion = entorno.get_func(id_func)
                 if funcion is not None:
@@ -344,6 +405,8 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
         elif ast.tipoInstruccion == TipoInstruccion.DeclaracionFuncion: #DeclaracionFuncion espera -> id parametros (tipo)? instrucciones
             id_declar = ast.hijos[0].lexema
+            linea_declar = ast.hijos[0].linea
+            columna_declar = ast.hijos[0].columna
             parametros = ast.hijos[1]            
 
             if len(ast.hijos) == 3:
@@ -377,14 +440,15 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                 print("DeclaracionParametro: ")
                 #recorrer(parametro)
                 if isinstance(parametro, TerminalTipoDato):
-                    nuevo_entorno.guardar_var(parametro.token.lexema, parametro.tipoDato, (parametro.tipoDato == TipoDato.String or parametro.tipoDato == TipoDato.Struct))
+                    nuevo_entorno.guardar_var(parametro.token.lexema, parametro.tipoDato, 
+                    (parametro.tipoDato == TipoDato.String or parametro.tipoDato == TipoDato.Struct),
+                    linea=parametro.token.linea, columna=parametro.token.columna
+                    )
                 else:
-                    nuevo_entorno.guardar_var(parametro.lexema, TipoDato.None_, False)
+                    nuevo_entorno.guardar_var(parametro.lexema, TipoDato.None_, False, linea=parametro.linea, columna=parametro.columna)
 
 
-            print("antes",generador.en_funcion)
             generador.agregar_inicio_funcion(id_declar)
-            print("mientras",generador.en_funcion)
 
             recorrer(instrucciones, nuevo_entorno)
             
@@ -393,7 +457,6 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
             generador.agregar_comentario("TERMINA DECLARACION")
             generador.agregar_fin_funcion()
-            print("despues",generador.en_funcion)
 
             #Se imprimen los parametros
             #recorrer(parametros)
@@ -720,7 +783,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                             generador.agregar_modulo(temporal, valor1, valor2)
                         
                         else:
-                            generador.agregar_expresion(temporal, valor1, valor2, operador)
+                            generador.agregar_expresion(temporal, valor1.valor, valor2.valor, operador)
                         
                         return Return(temporal, TipoDato.Float, True)
 
@@ -830,16 +893,20 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
 
         elif ast.operador in TipoExpresionRelacional:
 
+            print("Compruebaaa0")
             valor1 = recorrer(ast.hijos[0], entorno)
+            print("Compruebaaa1")
             #valor2 = recorrer(ast.hijos[1], entorno)
             valor2 = None
 
             resultado = Return(None, TipoDato.Boolean, False)
 
             if valor1.tipo_retorno is not TipoDato.Boolean:
+                print("Compruebaaaibool")
                 valor2 = recorrer(ast.hijos[1],entorno)
-
+                print("Compruebaaaibool1.5", valor1.valor, valor2.valor)
                 if (valor1.tipo_retorno == TipoDato.Int or valor1.tipo_retorno == TipoDato.Float) and (valor2.tipo_retorno == TipoDato.Int or valor2.tipo_retorno == TipoDato.Float):
+                    print("Compruebaaaibool2")
                     true_et = ''
                     false_et = ''
 
@@ -866,6 +933,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                     generador.agregar_goto(false_et)
                 
                 elif valor1.tipo_retorno == TipoDato.String and valor2.tipo_retorno == TipoDato.String:
+                    print("Compruebaaaibool3")
                     etiqueta_inicial = generador.nueva_etiqueta()
 
                     puntero1 = generador.agregar_temporal()
@@ -901,6 +969,7 @@ def recorrer(ast: Nodo, entorno): #compile == recorrer
                     generador.agregar_goto(false_et)
 
             else:
+                print("Compruebaaa")
                 valor2_goto = generador.nueva_etiqueta()
                 temporal_valor1 = generador.agregar_temporal()
 
